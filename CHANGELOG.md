@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Fixed (round 10: design)
+Screenshots of the built app at 1280 and 390 px, light and dark, on the start page, the empty-paste error and several samples, plus a keyboard walk through a result. The layout, type and colours held up; these were the things that looked broken, all CSS:
+- Delivery path: on every hop after the first, the dot sat beside the delay chip ("+8 min") instead of the server line, so it marked the wrong thing. The dot is now on the server line, the rail reaches the last dot, and the stub above the first dot is gone. Checked with one hop, a hop without a readable date (no chip), a time-travel ("warn") hop and a long host name wrapping at 320 px. The last hop's rail uses `:has()`; a browser without it shows the rail stopping short of the last dot, nothing worse.
+- `.small` carried the small buttons' padding, so every small text block got it too: "Declared as …" in attachment cards was indented and the "All headers" list padded. Padding now applies to `button.small` only.
+- On the desktop start page, the empty-paste error pushed the left-hand list of checks down about 10 px; the intake grid's second row now takes the extra height.
+- VirusTotal/URLhaus/MalwareBazaar links had a fainter border than the Copy button next to them; same border now.
+- At phone width a reason's title was squeezed between its badge and points into three lines; badge and points now share a line and the title gets the full width.
+- README "a full result" screenshot was only the top 860 px; it is now the whole page (`npm run screenshots` sizes the window to the page so the sticky verdict column is not cut). The other three README screenshots came out byte-identical when regenerated, so they are unchanged; `docs/demo.gif` was not re-recorded (nothing in what it shows changed).
+- Not changed, noted for later: the sticky verdict column on desktop scrolls on its own when taller than the window, with no visual cue that more is below; the intake status line (errors, "Analyzing…") sits under the samples, away from the paste box. Codex was still at its usage limit, so there was no second review this round.
+
 ### Fixed (round 9: first run)
 A fresh clone, following the README quickstart word for word (`npm ci`, `npm run dev`, every sample in the browser, each CLI command), worked. These came from reading the code as a sceptic and probing it with ordinary mail; each has a test that failed first.
 - False "Link text shows one site but goes to another" (+25): link text that is a file name (`Q3-Report.pdf`, `Budget.xlsx`, as in every shared-file notice) or a project name (`Node.js`) was read as a host name. Bare names ending in a file extension that is not a top-level domain are now names. `.zip` and `.mov` are real TLDs and still count as sites.
