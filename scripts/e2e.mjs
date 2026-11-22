@@ -57,6 +57,8 @@ try {
     page.on('console', (m) => m.type() === 'error' && problems.push(`${name} console: ${m.text()}`));
     page.on('pageerror', (e) => problems.push(`${name} pageerror: ${e.message}`));
     page.on('request', (r) => !r.url().startsWith(base) && !r.url().startsWith('data:') && problems.push(`${name} external request: ${r.url()}`));
+    // Capture what the copy buttons write, the same way in every engine (no clipboard permission prompts).
+    await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => void (window.copied = t) } }));
     await page.goto(base);
 
     // Every bundled sample, picked from the list.
@@ -82,6 +84,10 @@ try {
       await page.setInputFiles('#file', file);
       await page.waitForSelector('#verdict-h');
       check(`${name} file ${file}`, await shown(page), expected(cli(file)));
+      // The Markdown report must be byte for byte what the CLI prints.
+      await page.click('text=Copy Markdown report');
+      const md = await page.evaluate(() => window.copied);
+      if (md !== execFileSync('node', ['dist-cli/mailsleuth.js', '--markdown', file]).toString()) problems.push(`${name} file ${file}: copied Markdown differs from mailsleuth --markdown`);
       await page.click('text=Analyze another email');
     }
 
@@ -98,7 +104,7 @@ try {
     check(`${name} paste`, await shown(page), expected(JSON.parse(execFileSync('node', ['dist-cli/mailsleuth.js', '--compact', '-'], { input: pasted }).toString())));
 
     await browser.close();
-    console.log(`${name}: ${samples.length} samples (and the attached email), 2 files, 1 PDF, 1 paste checked`);
+    console.log(`${name}: ${samples.length} samples (and the attached email), 2 files with their Markdown reports, 1 PDF, 1 paste checked`);
   }
 } finally {
   server.close();
