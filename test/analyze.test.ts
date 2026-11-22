@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
-import { bytesToBinary } from '../src/core/encoding';
+import { bytesToBinary, textToBinary } from '../src/core/encoding';
 
 const sample = (name: string) => analyze(bytesToBinary(new Uint8Array(readFileSync(new URL(`../samples/${name}`, import.meta.url)))));
 const ids = (a: Awaited<ReturnType<typeof analyze>>) => a.findings.map((f) => f.id).sort();
@@ -92,6 +92,16 @@ describe('end-to-end on the bundled samples', () => {
     expect(await ids('Weekly Market Outlook <news@bank.example>')).not.toContain('display-name-brand');
     expect(await ids('Norton 360 <billing@renewals.example>')).toContain('display-name-brand');
     expect(await ids('Microsoft Outlook <no-reply@mail-team.example>')).toContain('display-name-brand');
+  });
+
+  it('sees a brand name through invisible, full-width and look-alike characters', async () => {
+    // Each displays as the brand in a mail client but slipped past the brand check.
+    const ids = async (from: string) => (await analyze(textToBinary(`From: ${from}\nSubject: hi\n\nhi`))).findings.map((f) => f.id);
+    for (const name of ['Pay​Pal', 'Pay­Pal', 'Pay‍Pal Support', 'PаyPal', 'ＰａｙＰａｌ', 'Mіcrosoft']) {
+      expect(await ids(`"${name}" <x@evil.example>`), name).toContain('display-name-brand');
+    }
+    expect(await ids('"service@pay​pal.com" <x@evil.example>')).toContain('display-name-address');
+    expect(await ids('"IT Help​desk" <it@gmail.com>')).toContain('freemail-official');
   });
 
   it('rates two attached emails by the riskier one', async () => {

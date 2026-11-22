@@ -2,7 +2,7 @@ import { findEmailsInText, parseAddressList, parseReturnPath, type Address } fro
 import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from './attachments';
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
-import { brandOwning, inspectDomain, normalizeDomain, sameOrg, type DomainIssue } from './domains';
+import { brandOwning, inspectDomain, normalizeDomain, readableName, sameOrg, type DomainIssue } from './domains';
 import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex, textToBinary } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
 import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
@@ -160,21 +160,21 @@ function senderChecks(f: Findings, s: Analysis['summary'], dmarcPass: boolean) {
   const from = s.from;
   if (!from?.domain) return;
   const fromOwner = brandOwning(from.domain);
+  const name = readableName(from.name);
 
-  for (const email of findEmailsInText(from.name)) {
+  for (const email of findEmailsInText(name)) {
     if (email.toLowerCase() !== from.address.toLowerCase()) {
       f.add('display-name-address', `name shows ${email}, real address is ${from.address}`);
     }
   }
-  const nameLower = from.name.toLowerCase();
   for (const brand of BRANDS) {
-    const claimed = brand.displayNames.find((n) => new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(nameLower));
+    const claimed = brand.displayNames.find((n) => new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(name));
     if (claimed && fromOwner !== brand) {
       f.add('display-name-brand', `"${from.name}" suggests ${brand.name}, but the address is on ${from.domain}`);
       break;
     }
   }
-  if (FREE_MAIL.has(from.domain) && OFFICIAL_NAME.test(from.name)) {
+  if (FREE_MAIL.has(from.domain) && OFFICIAL_NAME.test(name)) {
     f.add('freemail-official', `"${from.name}" writes from a ${from.domain} account`);
   }
   for (const r of s.replyTo) {

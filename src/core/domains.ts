@@ -31,6 +31,18 @@ const CONFUSABLE: Record<string, string> = {
   '0': 'o', '1': 'l', i: 'l', '|': 'l', '!': 'l', '3': 'e', '5': 's', '$': 's', '@': 'a',
 };
 
+// Not shown in a mail client's sender line: soft hyphen, zero-width characters and joiners, bidi marks and controls, BOM.
+const INVISIBLE = /[\u00ad\u034f\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
+const NAME_I: Record<string, string> = { і: 'i', ї: 'i', ı: 'i', ι: 'i' }; // look like "i" in a name, unlike in a domain skeleton
+
+/**
+ * A display name as the reader sees it, lower-cased: invisible characters dropped, full-width letters (NFKC)
+ * and Cyrillic/Greek look-alikes folded to Latin. ASCII is left alone, so "Office 365" stays as it is.
+ */
+export function readableName(name: string): string {
+  return Array.from(name.normalize('NFKC').replace(INVISIBLE, '').toLowerCase(), (c) => (c > '~' ? (NAME_I[c] ?? CONFUSABLE[c] ?? c) : c)).join('');
+}
+
 export function skeleton(label: string): string {
   return Array.from(label.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase(), (c) => CONFUSABLE[c] ?? c)
     .join('')
