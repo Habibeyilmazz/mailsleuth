@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "mailsleuth",
+  "version": "0.1.0",
+  "description": "Checks the email open in Gmail for phishing signs, offline: score, reasons and attachment hashes. Nothing is uploaded.",
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "action": { "default_popup": "panel.html?popup", "default_title": "mailsleuth: check an .eml or .msg file" },
+  "content_scripts": [{ "matches": ["https://mail.google.com/*"], "js": ["content.js"], "run_at": "document_idle" }],
+  "web_accessible_resources": [{ "resources": ["panel.html", "assets/*", "icons/*"], "matches": ["https://mail.google.com/*"] }],
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'self' https://mail.google.com"
+  }
+}

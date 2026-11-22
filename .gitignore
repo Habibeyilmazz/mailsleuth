@@ -7,3 +7,5 @@ dist-cli/
 .DS_Store
 test-results/
 .venv/
+dist-extension/
+mailsleuth-extension-*.zip

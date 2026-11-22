@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>mailsleuth</title>
+    <link rel="icon" href="./icons/icon-32.png" type="image/png" />
+  </head>
+  <body class="ext">
+    <header class="masthead">
+      <span class="brand">
+        <img src="./icons/icon-48.png" alt="" width="24" height="24" />
+        <span>mailsleuth</span>
+      </span>
+      <p class="offline">Checked inside your browser. Nothing is uploaded.</p>
+      <button id="close" type="button" class="ghost small close" hidden>Close<span class="sr-only"> mailsleuth panel</span></button>
+    </header>
+
+    <main id="main">
+      <section id="intake" class="intake" aria-labelledby="intake-h" hidden>
+        <h1 id="intake-h">Check a suspicious email</h1>
+        <label id="dropzone" class="dropzone" for="file">
+          <span class="dz-title">Drop an .eml or .msg file here</span>
+          <span class="dz-sub">or click to choose one. In most mail apps: “Download message” or “Save as”.</span>
+          <input id="file" type="file" accept=".eml,.msg,.txt,message/rfc822,application/vnd.ms-outlook,text/plain" />
+        </label>
+        <p id="in-tab" class="hint" hidden>Popup closes when you switch to your files? <a href="panel.html" target="_blank">Open this checker in a tab</a> and drop the file there.</p>
+        <p class="hint">In Gmail, open the email and use the “Check with mailsleuth” button above it instead.</p>
+      </section>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <div id="results" hidden></div>
+    </main>
+    <script type="module" src="../src/extension/panel.ts"></script>
+  </body>
+</html>

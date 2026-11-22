@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Synthetic test fixture, NOT Gmail: a minimal page that copies only the parts of Gmail's message markup
+  the extension relies on (data-message-id / data-legacy-message-id on each open message). Used by
+  test/extension.test.ts and, served as https://mail.google.com/mail/u/0/ through Playwright routing,
+  by scripts/e2e-extension.mjs. The messages are the repository's synthetic samples; no real mail.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inbox - fixture mail page</title>
+    <style>
+      body { margin: 0; font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1f1f1f; background: #f6f8fc; }
+      .top { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 20px; }
+      .logo { font-weight: 600; font-size: 20px; color: #444746; }
+      .search { flex: 0 1 640px; height: 46px; border-radius: 24px; background: #e9eef6; color: #5f6368; display: flex; align-items: center; padding: 0 20px; }
+      .wrap { display: flex; }
+      nav { width: 220px; padding: 8px 12px; }
+      nav p { margin: 0; padding: 6px 16px; border-radius: 16px; color: #444746; }
+      nav p.on { background: #d3e3fd; font-weight: 600; color: #041e49; }
+      .view { flex: 1; background: #fff; border-radius: 16px; margin: 0 16px 16px 0; padding: 20px 28px 40px; min-height: calc(100vh - 84px); }
+      h2 { font-weight: 400; font-size: 22px; margin: 4px 0 18px 52px; }
+      .adn { border-top: 1px solid #e0e0e0; padding: 14px 0 18px; }
+      .head { display: flex; gap: 12px; align-items: center; }
+      .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; }
+      .who { font-weight: 600; }
+      .who span { font-weight: 400; color: #5f6368; font-size: 12px; }
+      .date { margin-left: auto; color: #5f6368; font-size: 12px; }
+      .body { margin: 12px 0 0 52px; max-width: 60ch; }
+      .chip { display: inline-block; margin-top: 10px; border: 1px solid #dadce0; border-radius: 8px; padding: 8px 12px; color: #444746; }
+    </style>
+  </head>
+  <body>
+    <div class="top"><span class="logo">Fixture Mail</span><div class="search">Search mail</div></div>
+    <div class="wrap">
+      <nav aria-label="Folders"><p class="on">Inbox</p><p>Starred</p><p>Sent</p><p>Drafts</p></nav>
+      <main class="view" role="main">
+        <h2 data-legacy-thread-id="18d6f5c2a4b3e042" data-thread-perm-id="thread-f:1790000000000000042">New voice message (0:42) from +1 555 0100</h2>
+
+        <!-- Current Gmail: both ids present; the extension uses data-message-id. -->
+        <div class="adn ads" data-message-id="#msg-f:1790000000000000042" data-legacy-message-id="18d6f5c2a4b3e042">
+          <div class="head">
+            <div class="avatar" style="background:#7b5ea7">V</div>
+            <div class="who">Voice Mail <span>&lt;notify@hosted-pbx-alerts.example&gt;</span></div>
+            <div class="date">Sat, 21 Nov, 07:41</div>
+          </div>
+          <div class="body">
+            <p>You received a new voice message.</p>
+            <p>Caller: +1 555 0100<br />Length: 0:42</p>
+            <p>The recording is attached.</p>
+            <span class="chip">VM_0042.zip</span>
+          </div>
+        </div>
+
+        <!-- Older markup: only the legacy hex id. -->
+        <div class="adn ads" data-legacy-message-id="18d6f5c2a4b3e001">
+          <div class="head">
+            <div class="avatar" style="background:#1a73e8">P</div>
+            <div class="who">PayPal <span>&lt;service@paypa1-secure.example&gt;</span></div>
+            <div class="date">Tue, 10 Nov, 09:06</div>
+          </div>
+          <div class="body"><p>Your account has been limited – action required.</p></div>
+        </div>
+
+        <!-- A malformed id must not get a button (it would be pasted into the download URL). -->
+        <div class="adn ads" data-message-id="#msg-f:1&amp;view=om">
+          <div class="body"><p>Message with a malformed id.</p></div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
