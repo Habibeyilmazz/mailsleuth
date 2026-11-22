@@ -56,9 +56,14 @@ export interface ZipEntry {
   encrypted: boolean;
 }
 
-/** Reads file names from a ZIP central directory (stored uncompressed, so no inflate needed). */
+/**
+ * Reads file names from a ZIP central directory (stored uncompressed, so no inflate needed), plus any
+ * local file header it does not list: 7-Zip and WinRAR also open cut-off and concatenated archives.
+ */
 export function readZipEntries(b: Uint8Array): ZipEntry[] {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const entries: ZipEntry[] = [];
+  const decoder = new TextDecoder();
   let eocd = -1;
   for (let i = b.length - 22; i >= Math.max(0, b.length - 22 - 0xffff); i--) {
     if (view.getUint32(i, true) === 0x06054b50) {
@@ -66,11 +71,8 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
       break;
     }
   }
-  if (eocd < 0) return [];
-  const count = view.getUint16(eocd + 10, true);
-  let p = view.getUint32(eocd + 16, true);
-  const entries: ZipEntry[] = [];
-  const decoder = new TextDecoder();
+  const count = eocd < 0 ? 0 : view.getUint16(eocd + 10, true);
+  let p = eocd < 0 ? 0 : view.getUint32(eocd + 16, true);
   for (let n = 0; n < count && p + 46 <= b.length; n++) {
     if (view.getUint32(p, true) !== 0x02014b50) break;
     const flags = view.getUint16(p + 8, true);
@@ -79,6 +81,16 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
     const commentLen = view.getUint16(p + 32, true);
     entries.push({ name: decoder.decode(b.subarray(p + 46, p + 46 + nameLen)), encrypted: (flags & 1) === 1 });
     p += 46 + nameLen + extraLen + commentLen;
+  }
+  const listed = new Set(entries.map((e) => e.name));
+  for (let i = b.indexOf(0x50); i >= 0 && i + 30 <= b.length; i = b.indexOf(0x50, i + 1)) {
+    if (view.getUint32(i, true) !== 0x04034b50) continue;
+    const nameLen = view.getUint16(i + 26, true);
+    if (!nameLen || i + 30 + nameLen > b.length) continue;
+    const name = decoder.decode(b.subarray(i + 30, i + 30 + nameLen));
+    if (listed.has(name)) continue;
+    listed.add(name);
+    entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1 });
   }
   return entries;
 }

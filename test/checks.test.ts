@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inspectAttachment, sniffKind } from '../src/core/attachments';
+import { inspectAttachment, readZipEntries, sniffKind } from '../src/core/attachments';
 import { inspectDomain, orgDomain, skeleton } from '../src/core/domains';
 import { scanLanguage } from '../src/core/language';
 import { decodePunycodeLabel, toUnicodeDomain } from '../src/core/punycode';
@@ -201,6 +201,16 @@ describe('attachments', () => {
   it('inspects ZIP contents and encryption', () => {
     expect(attIssues('docs.zip', makeZip([{ name: 'scan.pdf.lnk', data: 'x' }]))).toEqual(['archive-risky-content']);
     expect(attIssues('docs.zip', makeZip([{ name: 'a.txt', data: 'x', encrypted: true }]))).toEqual(['encrypted-archive']);
+  });
+  it('lists ZIP entries that only the local headers show: cut-off and concatenated archives', () => {
+    // 7-Zip and WinRAR open both; with only the central directory read, both looked empty and scored 0.
+    const zip = makeZip([{ name: 'readme.txt', data: 'hi' }, { name: 'invoice.pdf.exe', data: 'MZ' }]);
+    const cut = zip.subarray(0, zip.length - 60);
+    expect(readZipEntries(cut).map((e) => e.name)).toEqual(['readme.txt', 'invoice.pdf.exe']);
+    expect(attIssues('docs.zip', cut)).toEqual(['archive-risky-content']);
+    const joined = new Uint8Array([...makeZip([{ name: 'a.txt', data: 'x' }]), ...makeZip([{ name: 'b.js', data: 'x', encrypted: true }])]);
+    expect(readZipEntries(joined)).toEqual([{ name: 'a.txt', encrypted: false }, { name: 'b.js', encrypted: true }]);
+    expect(readZipEntries(zip).map((e) => e.name)).toEqual(['readme.txt', 'invoice.pdf.exe']); // listed once
   });
   it('calls a password-protected .docx/.xlsx encrypted, not a type mismatch', () => {
     // Office stores an encrypted OOXML file in an OLE container with an "EncryptedPackage" stream.
