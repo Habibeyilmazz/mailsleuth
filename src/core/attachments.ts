@@ -56,10 +56,11 @@ function startsWith(b: Uint8Array, sig: number[], offset = 0): boolean {
 export interface ZipEntry {
   name: string;
   encrypted: boolean;
-  /** Where the entry's local header starts, its compression method (0 stored, 8 deflate) and compressed size. */
+  /** Where the entry's local header starts, its compression method (0 stored, 8 deflate), compressed and unpacked size. */
   offset: number;
   method: number;
   size: number;
+  unpacked: number;
 }
 
 /**
@@ -91,6 +92,7 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
       offset: view.getUint32(p + 42, true),
       method: view.getUint16(p + 10, true),
       size: view.getUint32(p + 20, true),
+      unpacked: view.getUint32(p + 24, true),
     });
     p += 46 + nameLen + extraLen + commentLen;
   }
@@ -103,10 +105,11 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
     if (view.getUint32(i, true) === 0x04034b50 && nameLen && i + 30 + nameLen <= b.length) {
       const name = decoder.decode(b.subarray(i + 30, i + 30 + nameLen));
       const size = known.get(i)?.size ?? view.getUint32(i + 18, true);
+      const unpacked = view.getUint32(i + 22, true);
       next = i + 30 + nameLen + view.getUint16(i + 28, true) + size;
       if (!listed.has(name)) {
         listed.add(name);
-        entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1, offset: i, method: view.getUint16(i + 8, true), size });
+        entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1, offset: i, method: view.getUint16(i + 8, true), size, unpacked });
       }
     }
     i = b.indexOf(0x50, next);

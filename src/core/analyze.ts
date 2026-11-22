@@ -32,6 +32,8 @@ export interface AttachmentInfo {
   sha256: string;
   detectedType: string | null;
   zipEntries: string[];
+  /** SHA-256 of each file in an attached ZIP that could be unpacked whole (not encrypted, within the size limit). */
+  zipHashes: { name: string; sha256: string }[];
   issues: AttachmentIssue[];
   /** For message/rfc822 attachments (e.g. a user forwarding phishing "as attachment"): its own full analysis. */
   email: Analysis | null;
@@ -440,6 +442,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
       const nested = depth < MAX_NESTING && (isEmail || isCompoundFile(bytesToBinary(part.body.subarray(0, 8))));
       const inspected = inspectAttachment(filename, part.body);
       await scanFile(filename, part.body, inspected, part.params['charset'], attachmentLinks);
+      const zipHashes: AttachmentInfo['zipHashes'] = [];
       if (inspected.kind === 'zip') {
         // One level into a ZIP: the files a user would open from it get the same link and content checks.
         let budget = MAX_ZIP_INFLATED;
@@ -449,6 +452,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
           const data = await zipEntryData(part.body, e, budget);
           if (!data) continue;
           budget -= data.length;
+          if (data.length === e.unpacked) zipHashes.push({ name: e.name, sha256: await sha256Hex(data) });
           const inner = inspectAttachment(e.name, data);
           await scanFile(`${filename} › ${e.name}`, data, inner, undefined, attachmentLinks);
           // archive-risky-content already names a risky-named entry; repeating that it is a program or HTML adds nothing.
@@ -462,6 +466,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
         sha256: await sha256Hex(part.body),
         detectedType: inspected.kind ? KIND_LABEL[inspected.kind] : null,
         zipEntries: inspected.zipEntries,
+        zipHashes,
         issues: inspected.issues,
         email: nested ? await analyze(bytesToBinary(part.body), depth + 1).catch(() => null) : null,
       });

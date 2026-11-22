@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
+import { toMarkdown } from '../src/core/report';
 import { bytesToBinary, textToBinary } from '../src/core/encoding';
 import { makePdf } from '../scripts/pdf.ts';
 import { makeZip } from '../scripts/zip.ts';
@@ -133,10 +135,11 @@ describe('end-to-end on the bundled samples', () => {
     const deflate = async (t: string) => new Uint8Array(await new Response(new Blob([t]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
     const docm = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/vbaProject.bin', data: 'x' }]);
     const inner = makeZip([{ name: 'deep.html', data: '<a href="https://deep.example/">x</a>' }]);
+    const statement = makePdf([], ['<< /S /URI /URI (https://bit.ly/x) >>']);
     const zip = makeZip([
       { name: 'Payment/', data: '' },
       { name: 'Payment/Remittance.html', data: page, deflated: await deflate(page) },
-      { name: 'Payment/Statement.pdf', data: makePdf([], ['<< /S /URI /URI (https://bit.ly/x) >>']) },
+      { name: 'Payment/Statement.pdf', data: statement },
       { name: 'Payment/Report.docx', data: docm },
       { name: 'Payment/more.zip', data: inner },
       { name: 'Payment/locked.pdf', data: '%PDF-1.7 /URI (https://hidden.example/)', encrypted: true },
@@ -154,6 +157,14 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.attachments[0].issues[3].detail).toBe('in Payment/more.zip: archive contains deep.html');
     expect(ids(a)).toEqual(['archive-risky-content', 'attachment-links', 'encrypted-archive', 'lookalike-domain', 'no-auth-results', 'office-macro', 'shortener']);
     expect(a.findings.find((f) => f.id === 'attachment-links')!.evidence).toEqual(['Remittance.zip › Payment/Remittance.html: 1 link', 'Remittance.zip › Payment/Statement.pdf: 1 link']);
+    // Hashes of the unpacked files, for lookups: the archive's own hash changes with every copy sent.
+    expect(a.attachments[0].zipHashes.map((z) => z.name)).toEqual(['Payment/Remittance.html', 'Payment/Statement.pdf', 'Payment/Report.docx', 'Payment/more.zip']);
+    const pdfHash = createHash('sha256').update(statement).digest('hex');
+    expect(a.attachments[0].zipHashes[1].sha256).toBe(pdfHash);
+    const md = toMarkdown(a);
+    expect(md).toContain(`  - SHA-256 of \`Payment/Statement.pdf\` inside: \`${pdfHash}\``);
+    expect(md).toContain(`\nsha256:${pdfHash}\n`);
+    expect(md).toContain('inside the attachment `Remittance.zip › Payment/Remittance.html`');
   });
 
   it('never produces findings without an explanation', async () => {

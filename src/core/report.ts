@@ -157,6 +157,7 @@ function sections(a: Analysis, level: number): string[] {
     `  - SHA-256 ${code(att.sha256)}`,
     ...att.issues.map((i) => `  - ${code(i.detail)}`),
     ...(att.zipEntries.length ? [`  - ${att.zipEntries.length} files inside: ${att.zipEntries.slice(0, 20).map(code).join(', ')}${att.zipEntries.length > 20 ? ', …' : ''}`] : []),
+    ...att.zipHashes.slice(0, 20).map((z) => `  - SHA-256 of ${code(z.name)} inside: ${code(z.sha256)}`),
   ].join('\n')));
 
   const iocs = observables(a);
@@ -175,7 +176,7 @@ function sections(a: Analysis, level: number): string[] {
   return out;
 }
 
-/** Unique sender domains, link URLs and hosts, and attachment hashes, defanged. */
+/** Unique sender domains, link URLs and hosts, and attachment hashes (also of files in attached ZIPs), defanged. */
 function observables(a: Analysis): string[] {
   const s = a.summary;
   const domains = [s.from, s.sender, s.returnPath, ...s.replyTo].map((x) => x?.domain).filter((d): d is string => !!d);
@@ -184,7 +185,7 @@ function observables(a: Analysis): string[] {
   const set = new Set([
     ...[...domains, ...hosts].map((d) => d.toLowerCase().replace(/\./g, '[.]')),
     ...urls.map(defang),
-    ...a.attachments.map((x) => `sha256:${x.sha256}`),
+    ...a.attachments.flatMap((x) => [x.sha256, ...x.zipHashes.map((z) => z.sha256)]).map((x) => `sha256:${x}`),
   ]);
   return [...set];
 }
