@@ -13,6 +13,13 @@ describe('encoding', () => {
     expect(decodeHeaderValue('=?UTF-8?B?w5xyw7xu?= =?UTF-8?Q?_fiyat=C4=B1?=')).toBe('Ürün fiyatı');
     expect(decodeHeaderValue('=?iso-8859-1?q?caf=E9?= ok')).toBe('café ok');
   });
+  it('joins a character split across adjacent encoded words, as mail clients do', () => {
+    // Many senders cut long subjects every N bytes, mid-character; decoding word by word gave U+FFFD.
+    expect(decodeHeaderValue('=?UTF-8?B?S29udG8gZ2VzcGVycnQg8A==?= =?UTF-8?B?n5SSIOKAkyA=?=\t=?UTF-8?B?Yml0dGUgYmVzdMOkdGlnZW4=?=')).toBe('Konto gesperrt 🔒 – bitte bestätigen');
+    expect(decodeHeaderValue('=?utf-8?Q?best=C3?= =?UTF-8?q?=A4tigen?=')).toBe('bestätigen');
+    // Different charsets are decoded separately.
+    expect(decodeHeaderValue('=?iso-8859-1?Q?caf=E9?= =?utf-8?Q?_=C3=A9?=')).toBe('café é');
+  });
   it('keeps raw UTF-8 headers (RFC 6532)', () => {
     expect(decodeHeaderValue(textToBinary('Grüße'))).toBe('Grüße');
   });

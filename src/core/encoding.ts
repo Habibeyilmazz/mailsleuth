@@ -60,13 +60,24 @@ export function decodeQuotedPrintable(s: string, header = false): Uint8Array {
 
 /** RFC 2047 encoded words, e.g. =?UTF-8?B?...?= ; whitespace between adjacent words is dropped. */
 export function decodeHeaderValue(raw: string): string {
-  const text = decodeRawHeader(raw);
-  return text
-    .replace(/(\?=)\s+(=\?)/g, '$1$2')
-    .replace(/=\?([^?\s]+)\?([BbQq])\?([^?]*)\?=/g, (_, charset: string, enc: string, data: string) => {
-      const bytes = enc.toUpperCase() === 'B' ? decodeBase64(data) : decodeQuotedPrintable(data, true);
-      return decodeCharset(bytes, charset.split('*')[0]);
-    });
+  const text = decodeRawHeader(raw).replace(/(\?=)\s+(=\?)/g, '$1$2');
+  // Adjacent words in one charset are joined as bytes before decoding, as mail clients do:
+  // senders often split a multi-byte character between two words.
+  return text.replace(/(?:=\?[^?\s]+\?[BbQq]\?[^?]*\?=)+/g, (run) => {
+    let out = '';
+    let charset = '';
+    let bytes = '';
+    for (const [, cs, enc, data] of run.matchAll(/=\?([^?\s]+)\?([BbQq])\?([^?]*)\?=/g)) {
+      const label = cs.split('*')[0].toLowerCase();
+      if (label !== charset) {
+        if (bytes) out += decodeCharset(binaryToBytes(bytes), charset);
+        charset = label;
+        bytes = '';
+      }
+      bytes += bytesToBinary(enc.toUpperCase() === 'B' ? decodeBase64(data) : decodeQuotedPrintable(data, true));
+    }
+    return out + (bytes ? decodeCharset(binaryToBytes(bytes), charset) : '');
+  });
 }
 
 // Includes the HTML5 names attackers use to hide a scheme from naive scanners ("https&colon;//"),
