@@ -8,6 +8,39 @@ Drop in an `.eml` or Outlook `.msg` file (or paste the source) and get forged se
 
 Built for regular people who want a second opinion on one email, and for SOC beginners who need to triage user-reported phishing and learn what each header means. It gives a score with reasons, never a verdict: passing every check does not make a message honest.
 
+## Use it inside Gmail
+
+A browser extension adds a **Check with mailsleuth** button above each open email in Gmail on the web. One click shows the full result in a panel next to the email: score, risk level, every reason with its evidence, links, and attachment hashes with VirusTotal and MalwareBazaar lookup buttons. No exporting, no pasting.
+
+![The mailsleuth panel open next to an email in a Gmail-like test page: a synthetic voicemail with a ZIP attachment scores 62 out of 100, high risk, with what to do next](docs/screenshots/extension-gmail.png)
+
+It is not in the Chrome Web Store or Firefox Add-ons; load it yourself (about a minute):
+
+```sh
+git clone https://github.com/Habibeyilmazz/mailsleuth.git
+cd mailsleuth
+npm ci
+npm run build:extension   # writes dist-extension/ and mailsleuth-extension-chrome.zip / -firefox.zip
+```
+
+1. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the `dist-extension` folder.
+4. Reload Gmail, open an email, click **Check with mailsleuth**. Escape or **Close** hides the panel.
+
+Without Node: every CI run on `main` uploads the same build as the `mailsleuth-extension` artifact (Actions tab, needs a GitHub login); unzip `mailsleuth-extension-chrome.zip` and load that folder. Firefox 128+: `about:debugging#/runtime/this-firefox` › **Load Temporary Add-on** › pick `mailsleuth-extension-firefox.zip`; this build exists but has not been tested in Firefox.
+
+The toolbar button opens the same checker for an `.eml` or `.msg` file you choose (any webmail, Outlook files included). Popups close when you switch to another app, so to drag a file in, use its "Open this checker in a tab" link.
+
+**What it touches.**
+
+- It runs only on `https://mail.google.com/*` and asks for no other permissions: no tabs, storage, history, cookies or background worker. Chrome describes this as "Read and change your data on mail.google.com".
+- Nothing happens until you click. The click makes one request: Gmail's own "Download message" link for that email (`/mail/u/0/?view=att&permmsgid=…&attid=0&disp=comp&safe=1&zw`), from the Gmail tab, with the login that tab already has. No OAuth, no Google API key, no Google Cloud project. The request is same-origin only, so the browser refuses it if Gmail redirects it to another host.
+- The message goes straight to the extension's own panel page, which runs the same analysis as the web page. That page's Content-Security-Policy has `connect-src 'none'`, so it cannot send anything anywhere. Nothing is stored; closing the panel discards it.
+- As on the web page, text from the email is shown as plain text only, links are defanged and never clickable, and the lookup buttons send only a hash or link, and only if you click them.
+
+**How it was tested, and what can break.** The Gmail part was tested against a synthetic page that copies the parts of Gmail's markup the extension uses ([test/fixtures/gmail/thread.html](test/fixtures/gmail/thread.html)), loaded in Chromium as `https://mail.google.com` by Playwright, not against real Gmail: no Gmail account was used. It reads the same attributes and download link that the long-lived [Gmail.js](https://github.com/KartikTalwar/gmail.js) library uses, but Gmail's page structure is undocumented and changes without notice. If the button stops appearing, or the panel says Gmail sent a web page instead of the message, the fix belongs in [src/extension/gmail.ts](src/extension/gmail.ts), the one file with Gmail-specific code; please open an issue. Outlook on the web is not supported yet (see [Roadmap](#roadmap)).
+
 ## Quickstart
 
 Needs Node.js 22.12 or newer (what Vite and Vitest require; CI uses Node 22) and about 30 seconds.
@@ -28,7 +61,7 @@ Then, on the start page:
 
 There is no hosted copy yet; `npm run build` gives a static `dist/` you can serve yourself (see [Static build](#static-build)).
 
-More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [a Word file that loads a remote template](docs/screenshots/office-template-result.png), [a sign-in page inside a ZIP](docs/screenshots/zip-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
+More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [a Word file that loads a remote template](docs/screenshots/office-template-result.png), [a sign-in page inside a ZIP](docs/screenshots/zip-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png), [the Gmail panel's reasons](docs/screenshots/extension-gmail-reasons.png), [the extension popup with a .msg file](docs/screenshots/extension-popup.png).
 
 ### Command line
 
@@ -112,6 +145,7 @@ Each finding adds points by severity (high 25, medium 12, low 5, capped at 100):
 - No fonts, analytics or CDNs are loaded.
 - Links in the email are shown defanged (`hxxps://evil[.]example`) and are never clickable.
 - Invisible text-direction characters (U+202A-202E, U+2066-2069) from the email are shown as markers like `⟨U+202E⟩` instead of reordering what you read; the CLI and "Copy JSON report" write them, and C1 control characters, as `\uXXXX` escapes.
+- The Gmail extension makes exactly one request, to `mail.google.com`, when you click its button, and its pages cannot make any (see [Use it inside Gmail](#use-it-inside-gmail)).
 - The VirusTotal, URLhaus and MalwareBazaar buttons are ordinary links that you choose to click. They send only that one URL, host name or hash to that service, never the email.
 
 ## How it works
@@ -131,7 +165,9 @@ src/core/      shared by web and CLI, no dependencies
   language.ts    phrase patterns
   analyze.ts     runs everything, scores, writes next steps
   report.ts      defanged Markdown report (page button and CLI --markdown)
-src/web/       vanilla TypeScript UI (DOM built with textContent only)
+src/web/       vanilla TypeScript UI (DOM built with textContent only); view.ts is the result view, shared with the extension
+src/extension/ browser extension: gmail.ts (every Gmail-specific hook), content.ts (button, download), panel.ts (analysis and view)
+extension/     extension manifest, icons and panel page
 src/cli.ts     Node CLI
 samples/       synthetic emails, generated by scripts/make-samples.ts
 ```
@@ -163,12 +199,14 @@ npm run typecheck
 npm test                 # Vitest unit and end-to-end tests on the samples
 npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about a minute)
 npm run build
+npm run build:cli && npm run build:extension
+npm run e2e:extension    # loads the unpacked extension in Chromium on a fake Gmail page; add -- --screenshots to redo the extension screenshots
 npm run e2e -- chromium   # main journey (samples, file picker, paste) served from /mailsleuth/ like Pages; page must match the CLI; axe-core accessibility check, light and dark
 npm run screenshots      # drives the built app in Chromium (Playwright), fails on console errors or external requests
 npm run demo             # re-records docs/demo.gif from the built app (needs ffmpeg)
 ```
 
-CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not the Safari app), with the browser set to a non-UTC time zone.
+CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not the Safari app), with the browser set to a non-UTC time zone, runs the extension test in Chromium, and uploads the extension zips as a workflow artifact (never to a store).
 
 ## Limitations
 
@@ -183,6 +221,7 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 - A `Received` date without a time zone, or with a zone name RFC 5322 does not define (such as `CET` without a numeric offset), shows as "no readable date" rather than a guess.
 - At most 20,000 distinct links are checked per email (its own links first, then those in attachments); beyond that the report says how many were left out and counts it as a warning sign. A 10 MB email of 450,000 distinct links takes about 0.6 s and 380 MB in the CLI.
 - The page lists at most 200 headers, hops, links, attachments, MIME parts, ZIP entries or evidence lines per section and says how many it left out; findings and "Copy JSON report" cover all of them.
+- The Gmail button depends on Gmail's undocumented page structure and download link, and was tested on a page that mimics them, not on Gmail itself. The Firefox build is untested.
 - Authentication results are only counted in the email's favour when the checking server matches the newest `Received` hop. Setups where a separate filtering service checks mail before an internal server (or Gmail's "by" an IP address only, followed by a different host) can show genuine results as unverified; that removes a reassurance but never adds points.
 
 ## Roadmap
@@ -190,6 +229,8 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 Ideas, not promises; the order is roughly what would help most.
 
 - A hosted copy: the manual Pages workflow is ready, Pages just has to be switched on for the repository
+- Outlook on the web. Not in the extension, because there is no clean way for a browser extension to get the raw message there: Microsoft Graph (`/me/messages/{id}/$value`) needs an Azure app registration and OAuth consent, the older Outlook REST API has been retired, and Outlook's own internal web calls are undocumented and change without notice, so using them would be exactly the kind of hack that breaks silently. The supported route is an Outlook add-in calling `Office.context.mailbox.item.getAsFileAsync()` (Mailbox requirement set 1.14, returns the open message as EML, no Azure app needed), a separate project with its own manifest. Until then, save the message (⋯ › Download, or drag it out of Outlook for Windows) and use the extension's popup or the web page
+- Publishing the extension in the Chrome Web Store and Firefox Add-ons
 - Opening RAR and 7-Zip archives, and ZIPs nested in ZIPs
 - Reading links in encrypted PDFs that open without a password (needs MD5/RC4 for older PDFs and AES for newer ones)
 - QR codes in images and PDFs ("scan to sign in"), which needs an image decoder in the browser
