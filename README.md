@@ -154,7 +154,7 @@ npm run typecheck
 npm test                 # Vitest unit and end-to-end tests on the samples
 npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about 15 s)
 npm run build
-npm run e2e -- chromium   # main journey (samples, file picker, paste) served from /mailsleuth/ like Pages; page must match the CLI
+npm run e2e -- chromium   # main journey (samples, file picker, paste) served from /mailsleuth/ like Pages; page must match the CLI; axe-core accessibility check, light and dark
 npm run screenshots      # drives the built app in Chromium (Playwright), fails on console errors or external requests
 npm run demo             # re-records docs/demo.gif from the built app (needs ffmpeg)
 ```
