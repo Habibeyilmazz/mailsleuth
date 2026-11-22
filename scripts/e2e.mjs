@@ -114,6 +114,9 @@ try {
     await page.setInputFiles('#file', { name: 'invoice.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n1 0 obj\n<< >>\n') });
     await page.waitForSelector('#status.is-error');
     if (!(await page.textContent('#status')).includes('not an email')) problems.push(`${name}: a dropped PDF did not say "not an email"`);
+    // An empty file saved by Notepad holds only a byte order mark: an error too.
+    await page.setInputFiles('#file', { name: 'empty.eml', mimeType: 'message/rfc822', buffer: Buffer.from([0xef, 0xbb, 0xbf, 0x0d, 0x0a]) });
+    await page.waitForFunction(() => document.querySelector('#status')?.textContent?.includes('contains no text'), null, { timeout: 5000 }).catch(() => problems.push(`${name}: an empty file with a byte order mark was not refused`));
 
     // Pasted source: headers with a zone-less Received date must not depend on the browser's time zone.
     const pasted = 'Received: from a.example by mx.b.example; Tue, 10 Nov 2026 09:00:00\nReceived: from c.example by a.example; Tue, 10 Nov 2026 09:00:00 +0530\nFrom: "IT Helpdesk" <helpdesk@gmail.com>\nSubject: Password expires today\n\nVerify your account within 24 hours.\n';
