@@ -92,6 +92,11 @@ a { color: var(--action); }
 .dropzone input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .dz-title { font: 600 1.25rem var(--serif); }
 .dz-sub { color: var(--muted); font-size: .92rem; max-width: 40ch; }
+.touch-only { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .touch-only { display: inline; }
+  .mouse-only { display: none; }
+}
 
 .paste, .samples { display: grid; gap: .5rem; }
 .paste label, .samples label { font-weight: 600; }
@@ -105,6 +110,7 @@ textarea { resize: vertical; }
 .row { display: flex; gap: .6rem; }
 .row select { flex: 1; min-width: 0; }
 .status { min-height: 1.5em; color: var(--muted); }
+.status.is-error { color: var(--high); font-weight: 600; }
 
 button { font: inherit; cursor: pointer; border-radius: 10px; padding: .6rem 1.1rem; border: 1px solid transparent; }
 .primary { background: var(--action); color: var(--action-ink); font-weight: 600; justify-self: start; }
@@ -121,8 +127,9 @@ button { font: inherit; cursor: pointer; border-radius: 10px; padding: .6rem 1.1
 .crumbs { font-weight: 600; overflow-wrap: anywhere; }
 .spacer { flex: 1; }
 .layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 2rem; align-items: start; padding-bottom: 4rem; }
-.col-verdict { position: sticky; top: 1rem; }
-.col-detail { display: grid; gap: 1.25rem; }
+/* sticky, but scrollable on its own so the last steps stay reachable on short screens */
+.col-verdict { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; overscroll-behavior: contain; border-radius: 16px; }
+.col-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
 
 .verdict { background: var(--surface); border-radius: 16px; padding: 1.5rem; border-top: 6px solid var(--low); }
 .verdict.level-high { border-top-color: var(--high); }
@@ -149,6 +156,8 @@ button { font: inherit; cursor: pointer; border-radius: 10px; padding: .6rem 1.1
 .verdict h3 { font-size: 1.15rem; margin-top: 1.4rem; }
 .steps { margin: .6rem 0 0; padding-left: 1.25rem; display: grid; gap: .55rem; font-size: .95rem; }
 
+/* email content is hostile: one endless token (a data: URL, a filename) must wrap, not widen the page */
+.panel, .verdict { overflow-wrap: anywhere; }
 .panel { background: var(--surface); border-radius: 16px; padding: 1.5rem; }
 .panel h2 { font-size: 1.45rem; margin-bottom: .35rem; }
 .intro { color: var(--muted); font-size: .95rem; max-width: 70ch; margin-bottom: 1rem; }
@@ -162,6 +171,8 @@ details { margin-top: .75rem; }
 summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .92rem; }
 
 .findings, .auth, .links, .atts, .timeline, .evidence, .issues, .tree { list-style: none; margin: 0; padding: 0; }
+/* auto grid columns grow to the longest unbreakable URL or hash; keep them inside the panel */
+.findings, .auth, .links, .atts, .timeline, .evidence, .issues, .tree { grid-template-columns: minmax(0, 1fr); }
 .findings { display: grid; gap: .75rem; }
 .finding { border-left: 4px solid var(--low); padding: .8rem 1rem; border-radius: 4px 10px 10px 4px; background: var(--low-bg); }
 .finding.sev-high { border-color: var(--high); background: var(--high-bg); }
@@ -237,9 +248,11 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 @media (max-width: 880px) {
   .intake { grid-template-columns: 1fr; grid-template-areas: 'copy' 'inputs' 'checks'; gap: 2rem; padding-top: 1.5rem; }
   .checks { margin-top: 0; }
-  .layout { grid-template-columns: 1fr; }
-  .col-verdict { position: static; }
-  .offline { margin-left: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .col-verdict { position: static; max-height: none; overflow: visible; }
+  .offline { margin-left: 0; font-size: .85rem; }
+  .crumbs { flex-basis: 100%; }
+  .spacer { display: none; }
 }
 
 @media (max-width: 520px) {

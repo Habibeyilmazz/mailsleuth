@@ -36,31 +36,37 @@ const TOO_BIG = `That input is larger than ${MAX_INPUT_BYTES / 1024 / 1024} MB. 
 
 let runs = 0;
 
+function say(text: string, error = false) {
+  status.textContent = text;
+  status.classList.toggle('is-error', error);
+}
+
 async function run(binary: string, label: string) {
   if (binary.length > MAX_INPUT_BYTES) {
-    status.textContent = TOO_BIG;
+    say(TOO_BIG, true);
     return;
   }
   if (!binary.trim()) {
-    status.textContent = 'Nothing to analyze yet: drop an .eml file, paste the message source, or pick a sample.';
+    say('Nothing to analyze yet: drop an .eml file, paste the message source, or pick a sample.', true);
+    paste.focus();
     return;
   }
-  status.textContent = 'Analyzing…';
+  say('Analyzing…');
   const ticket = ++runs;
   try {
     const analysis = await analyze(binary);
     if (ticket !== runs) return; // the user already started another analysis
     stack = [{ label, analysis }];
-    status.textContent = '';
+    say('');
     render();
   } catch (e) {
-    status.textContent = `Could not analyze this input: ${(e as Error).message}`;
+    say(`Could not analyze this input: ${(e as Error).message}`, true);
   }
 }
 
 async function runFile(file: File) {
   if (file.size > MAX_INPUT_BYTES) {
-    status.textContent = TOO_BIG;
+    say(TOO_BIG, true);
     return;
   }
   await run(bytesToBinary(new Uint8Array(await file.arrayBuffer())), file.name);
@@ -84,6 +90,12 @@ window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
 
 $('#analyze-paste').addEventListener('click', () => run(textToBinary(paste.value), 'Pasted message'));
+paste.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    void run(textToBinary(paste.value), 'Pasted message');
+  }
+});
 $('#load-sample').addEventListener('click', () => {
   const path = sampleSelect.value;
   run(textToBinary(SAMPLES[path]), path.split('/').pop()!);
@@ -111,6 +123,7 @@ function copyButton(value: string, label = 'Copy') {
   return h('button', {
     type: 'button',
     class: 'ghost small',
+    'aria-live': 'polite',
     onclick: async (e: Event) => {
       const btn = e.currentTarget as HTMLButtonElement;
       try {
@@ -130,7 +143,7 @@ function renderVerdict(a: Analysis) {
   const scale = total > 100 ? 100 / total : 1;
   return h('section', { class: `verdict level-${a.level}`, 'aria-labelledby': 'verdict-h' },
     h('div', { class: 'verdict-top' },
-      h('p', { class: 'score', 'aria-label': `Risk score ${a.score} out of 100` }, h('span', { class: 'score-n' }, a.score), h('span', { class: 'score-of' }, '/100')),
+      h('p', { class: 'score' }, h('span', { class: 'sr-only' }, `Risk score ${a.score} out of 100`), h('span', { class: 'score-n', 'aria-hidden': 'true' }, a.score), h('span', { class: 'score-of', 'aria-hidden': 'true' }, '/100')),
       h('div', {},
         h('h2', { id: 'verdict-h', tabindex: '-1' }, LEVEL_LABEL[a.level]),
         h('p', { class: 'verdict-text' }, a.verdict),

@@ -32,6 +32,11 @@ try {
   const page = await newPage({ viewport: { width: 1280, height: 860 }, colorScheme: 'light' });
   await page.screenshot({ path: `${outDir}/home.png` });
 
+  // Empty paste: an error the user can see, focus back in the box.
+  await page.click('#analyze-paste');
+  if (!(await page.isVisible('#status.is-error'))) problems.push('empty paste: no visible error');
+  if ((await page.evaluate(() => document.activeElement?.id)) !== 'paste') problems.push('empty paste: focus not moved to the paste box');
+
   const samples = await page.$$eval('#sample option', (o) => o.map((x) => x.value.split('/').pop()));
   for (const file of samples) {
     await runSample(page, file);
@@ -39,6 +44,14 @@ try {
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
     await page.screenshot({ path: `${outDir}/${file.replace('.eml', '')}.png`, fullPage: true });
     if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
+    // The sticky verdict column is taller than the window: its last step must still be reachable.
+    const hidden = await page.evaluate(() => {
+      const col = document.querySelector('.col-verdict');
+      col.scrollTop = col.scrollHeight;
+      window.scrollTo(0, 1200);
+      return document.querySelector('.steps li:last-child').getBoundingClientRect().bottom - window.innerHeight;
+    });
+    if (hidden > 0) problems.push(`${file}: last next step hidden ${Math.round(hidden)}px below the window`);
     await page.click('text=Analyze another email');
   }
 
@@ -49,10 +62,10 @@ try {
   console.log(`inner email: ${await page.textContent('#verdict-h')}`);
   await page.screenshot({ path: `${outDir}/nested.png`, fullPage: true });
 
-  // Paste path: headers only.
+  // Paste path: headers only, submitted from the keyboard.
   await page.click('text=Analyze another email');
   await page.fill('#paste', 'From: "IT Helpdesk" <helpdesk@gmail.com>\nSubject: Password expires today\nTo: you@example.net\n\n');
-  await page.click('#analyze-paste');
+  await page.press('#paste', 'Control+Enter');
   await page.waitForSelector('#verdict-h');
   console.log(`pasted: ${await page.textContent('#verdict-h')}`);
 
@@ -70,11 +83,15 @@ try {
   await page.waitForSelector('#verdict-h');
   console.log(`file input: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
 
-  const mobile = await newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', isMobile: true });
+  const mobile = await newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', isMobile: true, hasTouch: true });
   await mobile.screenshot({ path: `${outDir}/mobile-home-dark.png` });
+  for (const file of samples) {
+    await runSample(mobile, file);
+    const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - screen.width);
+    if (overflow > 0) problems.push(`mobile ${file}: page scrolls horizontally by ${overflow}px`);
+    await mobile.click('text=Analyze another email');
+  }
   await runSample(mobile, '01-paypal-lookalike.eml');
-  const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  if (overflow > 0) problems.push(`mobile: page scrolls horizontally by ${overflow}px`);
   await mobile.screenshot({ path: `${outDir}/mobile-result-dark.png` });
 } finally {
   await browser.close();
