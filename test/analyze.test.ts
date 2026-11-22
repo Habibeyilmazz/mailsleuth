@@ -108,6 +108,10 @@ describe('end-to-end on the bundled samples', () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
   });
+  it('checks links made relative by a <base href> (baseStriker)', async () => {
+    const a = await analyze('From: a@b.example\nContent-Type: text/html\n\n<base href="https://paypa1-secure.top/"><a href="signin">https://www.paypal.com/signin</a>');
+    expect(a.findings.map((f) => f.id)).toEqual(expect.arrayContaining(['text-mismatch', 'lookalike-domain']));
+  });
   it('still analyzes an email whose sender domain has a 200,000-character xn-- label', async () => {
     const a = await analyze(`From: x@xn--${'a'.repeat(200000)}-ba.example\nSubject: verify your account\n\nhi`);
     expect(a.findings.some((f) => f.id === 'language-credentials')).toBe(true);

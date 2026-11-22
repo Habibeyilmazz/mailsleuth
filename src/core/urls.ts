@@ -164,15 +164,27 @@ export function extractHtmlLinks(html: string): { href: string; text: string }[]
   // Attributes may contain ">" inside quotes (title="a > b"). Like in a browser, a new <a> closes
   // the previous one and unterminated markup runs to the end of input, which keeps hostile input linear.
   const attrs = `((?:[^>"']|"[^"]*(?:"|$)|'[^']*(?:'|$))*)(?:>|$)`;
+  // <base href> makes relative links absolute in many mail clients ("baseStriker"): <a href="login">
+  // then opens https://evil.example/login, so resolve them like the client would instead of skipping them.
+  const baseTag = new RegExp(`<base\\b${attrs}`, 'i').exec(html);
+  const base = baseTag && attr(baseTag[1], 'href');
+  const resolve = (href: string) => {
+    if (!base || /^([a-z][a-z0-9+.-]*:|#)/i.test(href)) return href;
+    try {
+      return new URL(href, cleanHref(base)).href;
+    } catch {
+      return href;
+    }
+  };
   for (const m of html.matchAll(new RegExp(`<a\\b${attrs}([\\s\\S]*?)(?:<\\/a\\s*>|(?=<a[\\s>])|$)`, 'gi'))) {
     const h = attr(m[1], 'href');
     // Inline tags join text ("<span>pay</span><span>pal.com</span>" reads "paypal.com"); block tags separate it.
     const text = m[2].replace(/<(br|p|div|tr|td|li|h\d)\b[^>]*(?:>|$)/gi, ' ').replace(/<[a-z/!?][^>]*(?:>|$)/gi, '');
-    if (h !== null) out.push({ href: cleanHref(h), text: decodeHtmlEntities(text).replace(/\s+/g, ' ').trim() });
+    if (h !== null) out.push({ href: resolve(cleanHref(h)), text: decodeHtmlEntities(text).replace(/\s+/g, ' ').trim() });
   }
   for (const m of html.matchAll(new RegExp(`<(area|form)\\b${attrs}`, 'gi'))) {
     const h = attr(m[2], m[1].toLowerCase() === 'form' ? 'action' : 'href');
-    if (h !== null) out.push({ href: cleanHref(h), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
+    if (h !== null) out.push({ href: resolve(cleanHref(h)), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
   }
   return out;
 }

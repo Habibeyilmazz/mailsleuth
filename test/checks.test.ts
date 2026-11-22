@@ -57,6 +57,11 @@ describe('domains', () => {
 });
 
 describe('links', () => {
+  it('resolves relative links against <base href> like mail clients do', () => {
+    const html = '<base href="https://evil.example/kit/"><a href="login.html">Sign in</a><a href="https://ok.example/">x</a><a href="#top">top</a>';
+    expect(extractHtmlLinks(html).map((l) => l.href)).toEqual(['https://evil.example/kit/login.html', 'https://ok.example/', '#top']);
+    expect(extractHtmlLinks('<a href="login.html">x</a>')[0].href).toBe('login.html');
+  });
   it('reads hosts the way the browser does when &shy; hides inside them', () => {
     const [l] = extractHtmlLinks('<a href="https://pay&shy;pa1.example/login">Sign in</a>');
     expect(analyzeLink(l.href, l.text, 'html').host).toBe('paypa1.example');
