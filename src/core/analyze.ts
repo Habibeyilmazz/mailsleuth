@@ -73,6 +73,7 @@ const POINTS: Record<Severity, number> = { info: 0, low: 5, medium: 12, high: 25
 const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'display-name-address': ['sender', 'high', 'The sender name shows a different email address', 'Mail apps often show only the display name. Putting a trusted-looking address in the name hides the real sender.'],
   'display-name-brand': ['sender', 'high', 'The sender name claims a brand the address does not belong to', 'Anyone can type any name into the "From" name. What counts is the domain after the @, and here it is not the brand\'s.'],
+  'multiple-from': ['sender', 'medium', 'The message has more than one sender address', 'A normal email has exactly one From address. With more than one, mail apps and filters can disagree on which is the sender: a known way to show a trusted address while the checks look at another. This report uses the first one.'],
   'reply-to-mismatch': ['sender', 'medium', 'Replies would go to a different domain', 'If you hit Reply, your answer goes somewhere other than the address shown as the sender. Common in invoice and CEO fraud.'],
   'return-path-mismatch': ['sender', 'low', 'Bounce address (Return-Path) is on a different domain', 'The hidden envelope sender differs from the visible From domain. Newsletters and ticketing systems do this legitimately; it matters more when authentication also fails.'],
   'freemail-official': ['sender', 'low', 'Official-sounding name on a free webmail account', 'Companies, banks and IT departments do not usually write from free webmail addresses.'],
@@ -168,7 +169,10 @@ function senderChecks(f: Findings, s: Analysis['summary'], dmarcPass: boolean) {
   const from = s.from;
   if (!from?.domain) return;
   const fromOwner = brandOwning(from.domain);
-  const name = readable(from.name).toLowerCase();
+  const shown = readable(from.name);
+  const name = shown.toLowerCase();
+  // A capital I after a lower-case letter reads as l in most sans-serif fonts: "PaypaI", "AppIe".
+  const asL = shown.replace(/(?<=[a-z])I/g, 'l').toLowerCase();
 
   for (const email of findEmailsInText(name)) {
     if (email.toLowerCase() !== from.address.toLowerCase()) {
@@ -176,7 +180,10 @@ function senderChecks(f: Findings, s: Analysis['summary'], dmarcPass: boolean) {
     }
   }
   for (const brand of BRANDS) {
-    const claimed = brand.displayNames.find((n) => new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(name));
+    const claimed = brand.displayNames.find((n) => {
+      const re = new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`);
+      return re.test(name) || re.test(asL);
+    });
     if (claimed && fromOwner !== brand) {
       f.add('display-name-brand', `"${from.name}" suggests ${brand.name}, but the address is on ${from.domain}`);
       break;
@@ -441,6 +448,8 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const f = new Findings();
   const dmarcPass = resultFor(auth, 'dmarc')?.result === 'pass';
   senderChecks(f, summary, dmarcPass);
+  const froms = getHeaders(h, 'from').flatMap((v) => parseAddressList(v));
+  if (froms.length > 1) f.add('multiple-from', froms.map((a) => a.address).join(', '));
   if (msg) {
     const id = msg.transportHeaders ? 'outlook-msg' : 'msg-no-headers';
     f.add(id, `message text: ${msg.bodies.join(', ') || 'none stored'}`);

@@ -88,7 +88,7 @@ npm run preview      # serves dist/ on http://localhost:4191
 
 | Area | Checks |
 | --- | --- |
-| Sender | From vs Reply-To vs Return-Path domains; a different email address hidden in the display name; brand names in the display name on a non-brand domain; official-sounding names on free webmail |
+| Sender | From vs Reply-To vs Return-Path domains; more than one From address; a different email address hidden in the display name; brand names in the display name on a non-brand domain (also spelled with look-alike letters, or a capital I for l as in "PaypaI"); official-sounding names on free webmail |
 | Domains | Look-alikes of 44 bundled brands: homoglyphs from Cyrillic/Greek, digit swaps (paypa1), one-letter typos, brand names inside someone else's domain (paypal.com.evil.example); punycode (`xn--`) decoded and shown; domain endings often seen in abuse reports |
 | Authentication | SPF, DKIM, DMARC, ARC and Microsoft `compauth` from `Authentication-Results`, each explained in plain English; DMARC alignment; only the topmost header is trusted, and only when its server matches the newest `Received` hop (a header without a server name only behind a Microsoft 365 hop); earlier ones are shown as unverifiable |
 | Delivery path | Every `Received` hop on a timeline with the delay since the previous hop; timestamps that go backwards are flagged |

@@ -140,6 +140,24 @@ describe('end-to-end on the bundled samples', () => {
     expect(await ids('"IT Help​desk" <it@gmail.com>')).toContain('freemail-official');
   });
 
+  it('sees a capital I standing in for a lower-case l in a brand name', async () => {
+    // "PaypaI" and "AppIe" look the same as the brand in most sans-serif fonts, and scored 0.
+    const ids = async (from: string) => (await analyze(textToBinary(`From: ${from}\nSubject: hi\n\nhi`))).findings.map((f) => f.id);
+    for (const name of ['PaypaI', 'AppIe Support', 'GoogIe']) expect(await ids(`"${name}" <x@evil.example>`), name).toContain('display-name-brand');
+    // Not when the capital I follows another capital or starts a word: DHI is not DHL, "IT" is not "lt".
+    for (const name of ['DHI Group', 'IT Desk']) expect(await ids(`"${name}" <x@evil.example>`), name).not.toContain('display-name-brand');
+    expect(await ids('LinkedIn <x@evil.example>')).toContain('display-name-brand');
+  });
+
+  it('flags a message with more than one From address', async () => {
+    // Mail apps and filters can disagree on which one is the sender; only the first was looked at, score 0.
+    const run = (headers: string) => analyze(textToBinary(`${headers}\nSubject: hi\n\nhi`));
+    const two = await run('From: a@paypal.com\nFrom: b@evil.example');
+    expect(two.findings.find((f) => f.id === 'multiple-from')).toMatchObject({ severity: 'medium', evidence: ['a@paypal.com, b@evil.example'] });
+    expect((await run('From: <a@b.example>, <c@d.example>')).findings.map((f) => f.id)).toContain('multiple-from');
+    expect((await run('From: Alice <a@b.example>')).findings.map((f) => f.id)).not.toContain('multiple-from');
+  });
+
   it('rates two attached emails by the riskier one', async () => {
     const inner = (html: string) => `Content-Type: message/rfc822\n\nFrom: a@b.example\nContent-Type: text/html\n\n${html}\n`;
     const a = await analyze(['Content-Type: multipart/mixed; boundary=b', '', '--b',
