@@ -5,6 +5,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ## [Unreleased]
 
 ### Fixed
+- CLI read the whole file or pipe before checking the 50 MB limit, so `mailsleuth /dev/zero` exhausted memory; it now stops reading at the limit (CI checks it).
+- Web: a hostile email with hundreds of thousands of headers, hops or links built that many DOM rows (500,000 nodes for 1 MB of headers). Each list now shows the first 200 and says how many more the JSON report holds.
+- Web: a slow file read could replace a newer analysis, and an unreadable file failed silently; both now handled.
+- Web: a very long header name widened the "All headers" table off the page.
+- Text box, select and outline-button borders were about 1.3:1 against their backgrounds; now at least 3:1 in both themes.
 - Phones: one long unbreakable token (the `data:` link in sample 05) widened the result page past the screen. Grid columns are now `minmax(0, 1fr)` and panels wrap long tokens.
 - Desktop: the sticky verdict column was taller than an 860px window, hiding the last "What to do next" steps until the end of the page. It now scrolls on its own and is keyboard-focusable (Shift+Tab from the verdict, then arrow keys/End).
 - Dark mode: the logo's magnifier handle was invisible and the lens a white blob; the SVG now has dark colours.
@@ -26,11 +31,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ### Added
 - Ctrl+Enter (Cmd+Enter on a Mac) in the paste box analyzes it.
 - Touch screens see "Choose an .eml file" instead of "Drop an .eml file here".
-- `npm run screenshots` now also checks: no horizontal scroll at 390px on every sample (measured against the device width, since mobile Chrome widens `innerWidth` to fit wide content and hid the old bug), the last next step reachable by keyboard, and the empty-paste error.
+- `npm run screenshots` now also checks: no horizontal scroll at 390px on every sample (measured against the device width, since mobile Chrome widens `innerWidth` to fit wide content and hid the old bug), the last next step reachable by keyboard, the empty-paste error, a slow file read racing a sample, and an unreadable file.
 
 ### Notes for the next contributor
 - Sample 05 imitates Microsoft 365 headers with reserved `example.net` host names, so it now shows "cannot be tied to a receiving server"; that is the new rule working, not a bug.
-- Codex hit its usage limit mid-review in round 1 and again at the start of the design round; the CLI and web UI code paths still have had no second-opinion review.
+- Codex reviewed the web UI and CLI in the design round (after a usage-limit wait); its six findings are fixed above. It did not review `src/core` again.
 - README screenshots (`docs/screenshots/`) are copied from `test-results/screenshots/` after `npm run screenshots`.
 
 ## [0.1.0] - 2026-11-22

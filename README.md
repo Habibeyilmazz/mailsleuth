@@ -104,6 +104,7 @@ npm run screenshots      # drives the built app in Chromium (Playwright), fails 
 - Language checks are English only.
 - Attachments are inspected, not decompressed: macros inside nested archives, PDF JavaScript and remote-template tricks in Office files are not detected.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
+- The page lists at most 200 headers, hops, links, attachments, MIME parts or ZIP entries per section and says how many it left out; findings and "Copy JSON report" cover all of them.
 - Authentication results are only counted in the email's favour when the checking server matches the newest `Received` hop. Setups where a separate filtering service checks mail before an internal server (or Gmail's "by" an IP address only, followed by a different host) can show genuine results as unverified; that removes a reassurance but never adds points.
 
 ## Roadmap
