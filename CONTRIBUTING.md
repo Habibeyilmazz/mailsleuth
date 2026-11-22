@@ -17,7 +17,7 @@ Instead, rebuild the trick in a synthetic message:
 
 ## Setup
 
-Node.js 20 or newer (the sample generator needs 22.18+ because it runs TypeScript directly).
+Node.js 22.12 or newer (the sample generator needs 22.18+ because it runs TypeScript directly).
 
 ```sh
 npm ci

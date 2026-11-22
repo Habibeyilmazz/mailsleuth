@@ -9,7 +9,7 @@
     "mailsleuth": "dist-cli/mailsleuth.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "vite --port 4190 --strictPort",

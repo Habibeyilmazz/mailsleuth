@@ -10,7 +10,7 @@ Built for regular people who want a second opinion on one email, and for SOC beg
 
 ## Quickstart
 
-Needs Node.js 20 or newer and about 30 seconds.
+Needs Node.js 22.12 or newer (what Vite and Vitest require; CI uses Node 22) and about 30 seconds.
 
 ```sh
 git clone https://github.com/Habibeyilmazz/mailsleuth.git
