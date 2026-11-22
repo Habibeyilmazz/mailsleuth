@@ -64,6 +64,19 @@ describe('end-to-end on the bundled samples', () => {
     }
   });
 
+  it('checks every distinct link text behind the same URL', async () => {
+    const a = await analyze('Content-Type: text/html\n\n<a href="https://evil.example/">Home</a><a href="https://evil.example/">paypal.com</a>');
+    expect(a.links).toHaveLength(2);
+    expect(a.findings.map((f) => f.id)).toContain('text-mismatch');
+  });
+
+  it('gives no reassurance for Authentication-Results it cannot tie to a receiving server', async () => {
+    const a = await analyze('From: ceo@company.example\nAuthentication-Results: forged; dmarc=pass header.from=company.example\n\nHi');
+    expect(a.auth.verified).toBe(false);
+    expect(a.reassurances.join(' ')).not.toContain('DMARC');
+    expect(a.findings.map((f) => f.id)).toContain('auth-unverified');
+  });
+
   it('handles empty and garbage input without throwing', async () => {
     expect((await analyze('')).score).toBe(0);
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');

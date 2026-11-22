@@ -26,6 +26,7 @@ describe('domains', () => {
   it('finds the registrable domain, including two-label suffixes', () => {
     expect(orgDomain('a.b.paypal.co.uk')).toBe('paypal.co.uk');
     expect(orgDomain('mail.example.com.')).toBe('example.com');
+    expect(orgDomain('victim.github.io')).not.toBe(orgDomain('evil.github.io'));
   });
   it('maps confusables to a common skeleton', () => {
     expect(skeleton('rnicr0soft')).toBe(skeleton('microsoft'));
@@ -74,6 +75,17 @@ describe('links', () => {
     expect(linkIssues('https://trusted.example/out?next=https://evil.example/')).toEqual(['open-redirect']);
     expect(linkIssues('https://files.example/invoice.iso')).toEqual(['risky-download']);
   });
+  it('does not trust look-alike wrapper hosts and survives bad percent-encoding', () => {
+    const fake = analyzeLink('https://google.attacker.example/url?q=https%3A%2F%2Fpaypal.com', 'paypal.com', 'html');
+    expect(fake.unwrappedVia).toEqual([]);
+    expect(fake.issues.map((i) => i.id)).toContain('text-mismatch');
+    expect(linkIssues('https://%FF@evil.example/')).toEqual(['userinfo']);
+    expect(linkIssues('https://www.google.com/url?q=javascript:alert(1)')).toEqual(['javascript-uri']);
+  });
+  it('reads the real href, not data-href, and strips URL whitespace like browsers do', () => {
+    expect(extractHtmlLinks('<a data-href="https://paypal.com" href="https://evil.example/">x</a>')[0].href).toBe('https://evil.example/');
+    expect(extractHtmlLinks('<a href="java&#10;script:alert(1)">go</a>')[0].href).toBe('javascript:alert(1)');
+  });
   it('extracts links from HTML (with entities) and plain text', () => {
     expect(extractHtmlLinks(`<a class=x href='https://a.example/?a=1&amp;b=2'><b>Go</b> now</a><form action=https://b.example/post>`)).toEqual([
       { href: 'https://a.example/?a=1&b=2', text: 'Go now' },
@@ -106,6 +118,9 @@ describe('attachments', () => {
     expect(attIssues('photo‮gpj.exe', 'MZ')).toEqual(['rlo-filename', 'executable']);
     expect(attIssues('invoice.pdf', 'MZ\x90\x00')).toEqual(['type-mismatch']);
     expect(attIssues('invoice.pdf', '%PDF-1.7')).toEqual([]);
+  });
+  it('flags programs recognized by content even without an extension', () => {
+    expect(attIssues('unnamed-attachment', 'MZ\x90\x00')).toEqual(['executable']);
   });
   it('recognizes ISO and LNK by magic bytes', () => {
     const iso = new Uint8Array(0x8010);

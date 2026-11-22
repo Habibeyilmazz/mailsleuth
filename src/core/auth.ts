@@ -23,6 +23,11 @@ export interface AuthHeader {
 export interface AuthReport {
   /** Topmost Authentication-Results: added by the final receiving system, the only one you can trust. */
   primary: AuthHeader | null;
+  /**
+   * True when the topmost header's server also appears as a receiving server ("by") in the
+   * Received chain. Otherwise the results may be typed in by whoever built the message.
+   */
+  verified: boolean;
   /** Lower Authentication-Results headers. Anyone upstream (including the sender) could have written these. */
   earlier: AuthHeader[];
   arc: AuthHeader[];
@@ -95,9 +100,11 @@ export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Au
   const authservId = segments[0] && !/^[\w.-]+\s*=/.test(segments[0]) ? segments.shift()!.replace(/\s+\d+$/, '') : '';
   const results: AuthResult[] = [];
   for (const seg of segments) {
-    const comments = [...seg.matchAll(/\(([^)]*)\)/g)].map((m) => m[1]);
-    const text = seg.replace(/\([^)]*\)/g, ' ');
-    const m = /^\s*([\w.-]+)\s*=\s*([\w-]+)/.exec(text);
+    const comments = [...seg.matchAll(/\(([^()]*)\)/g)].map((m) => m[1]);
+    let text = seg;
+    // Comments can nest (RFC 5322); peel them from the inside out.
+    for (let prev = ''; prev !== text; ) [prev, text] = [text, text.replace(/\([^()]*\)/g, ' ')];
+    const m = /^\s*([\w.-]+)(?:\s*\/\s*\d+)?\s*=\s*([\w-]+)/.exec(text);
     if (!m) continue;
     const method = m[1].toLowerCase();
     const result = m[2].toLowerCase();
@@ -121,6 +128,8 @@ export function buildAuthReport(opts: {
   arcSeals: string[];
   receivedSpf: string | null;
   fromDomain: string;
+  /** "by" hosts of the Received headers. */
+  receivedBy: string[];
 }): AuthReport {
   const all = opts.authResults.map((r) => parseAuthResults(r));
   const arc = opts.arcAuthResults.map((r) => parseAuthResults(r, 'ARC-Authentication-Results')).sort((a, b) => (b.instance ?? 0) - (a.instance ?? 0));
@@ -130,8 +139,11 @@ export function buildAuthReport(opts: {
   const primary = all[0] ?? null;
   const fromDomain = opts.fromDomain;
   const pass = (method: string) => (primary?.results ?? []).filter((r) => r.method === method && r.result === 'pass');
+  const id = primary?.authservId ?? '';
   return {
     primary,
+    // Microsoft 365 omits the authserv-id; then any Received chain is the best we can check.
+    verified: Boolean(primary) && opts.receivedBy.length > 0 && (!id || opts.receivedBy.some((b) => sameOrg(b, id))),
     earlier: all.slice(1),
     arc,
     arcChain: newestSeal?.cv ?? null,

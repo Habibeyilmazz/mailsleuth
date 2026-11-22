@@ -125,6 +125,9 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
     issues.push({ id: 'double-extension', detail: `"${name}" pretends to be a .${decoy[1].toLowerCase()} file but is really .${ext}` });
   }
   if (EXECUTABLE.has(ext)) issues.push({ id: 'executable', detail: `.${ext} files run code on your computer when opened` });
+  else if ((kind === 'exe' || kind === 'lnk') && !EXT_KIND[ext]) {
+    issues.push({ id: 'executable', detail: `the content is a ${KIND_LABEL[kind]} even though the name does not say so` });
+  }
   if (DISK_IMAGE.has(ext) || kind === 'iso') issues.push({ id: 'disk-image', detail: 'disk image files are used to smuggle programs past Windows download warnings' });
   if (HTML.has(ext) || kind === 'html') issues.push({ id: 'html-attachment', detail: 'HTML attachments open in your browser and are a common way to show a fake login page without any link to block' });
   if (ext === 'one' || kind === 'onenote') issues.push({ id: 'onenote', detail: 'OneNote files can hide clickable embedded programs behind fake "click to view" buttons' });

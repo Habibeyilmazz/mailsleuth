@@ -33,6 +33,14 @@ export interface LinkInfo {
 
 const RISKY_DOWNLOAD = /\.(exe|scr|msi|bat|cmd|js|jse|vbs|vbe|wsf|hta|ps1|jar|apk|lnk|iso|img|vhdx?|zip|rar|7z|html?|svg|one)$/i;
 
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 function tryUrl(s: string): URL | null {
   try {
     return new URL(s);
@@ -45,8 +53,8 @@ function tryUrl(s: string): URL | null {
 export function unwrapOnce(url: URL): { via: string; url: string } | null {
   const host = url.hostname.toLowerCase();
   const q = url.searchParams;
-  if (host.endsWith('safelinks.protection.outlook.com') && q.get('url')) return { via: 'Microsoft Safe Links', url: q.get('url')! };
-  if (/(^|\.)google\.[a-z.]+$/.test(host) && url.pathname === '/url' && (q.get('q') || q.get('url'))) {
+  if ((host === 'safelinks.protection.outlook.com' || host.endsWith('.safelinks.protection.outlook.com')) && q.get('url')) return { via: 'Microsoft Safe Links', url: q.get('url')! };
+  if (/^(www\.)?google\.(com|[a-z]{2}|com?\.[a-z]{2})$/.test(host) && url.pathname === '/url' && (q.get('q') || q.get('url'))) {
     return { via: 'Google redirect', url: (q.get('q') || q.get('url'))! };
   }
   if (host === 'urldefense.proofpoint.com' && /^\/v2\/url/.test(url.pathname) && q.get('u')) {
@@ -84,26 +92,26 @@ function hostInText(text: string): string | null {
 
 export function analyzeLink(href: string, text: string | null, source: LinkInfo['source']): LinkInfo {
   const info: LinkInfo = { href, text, source, finalUrl: href, host: null, unwrappedVia: [], issues: [], domainIssues: [] };
-  const scheme = /^\s*([a-z][a-z0-9+.-]*):/i.exec(href)?.[1].toLowerCase();
-  if (scheme === 'data') {
-    info.issues.push({ id: 'data-uri', detail: `link opens content embedded in the email itself (${href.slice(0, 40)}…), a trick to show a fake page without any web address` });
-    return info;
-  }
-  if (scheme === 'javascript') {
-    info.issues.push({ id: 'javascript-uri', detail: 'link runs script code instead of opening a web page' });
-    return info;
-  }
   let url = tryUrl(href);
-  if (!url) return info;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; url && i < 5; i++) {
     const step = unwrapOnce(url);
     const next = step && tryUrl(step.url);
     if (!step || !next) break;
     info.unwrappedVia.push(step.via);
     url = next;
   }
-  info.finalUrl = url.href;
-  if (!/^https?:$/.test(url.protocol)) return info;
+  if (url) info.finalUrl = url.href;
+  // Checked after unwrapping: a redirect wrapper can carry a data: or javascript: target.
+  const scheme = /^\s*([a-z][a-z0-9+.-]*):/i.exec(info.finalUrl)?.[1].toLowerCase();
+  if (scheme === 'data') {
+    info.issues.push({ id: 'data-uri', detail: `link opens content embedded in the email itself (${info.finalUrl.slice(0, 40)}…), a trick to show a fake page without any web address` });
+    return info;
+  }
+  if (scheme === 'javascript') {
+    info.issues.push({ id: 'javascript-uri', detail: 'link runs script code instead of opening a web page' });
+    return info;
+  }
+  if (!url || !/^https?:$/.test(url.protocol)) return info;
   const host = url.hostname.toLowerCase();
   info.host = host;
 
@@ -118,7 +126,7 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
     });
   }
   if (url.username) {
-    info.issues.push({ id: 'userinfo', detail: `the part before "@" ("${decodeURIComponent(url.username)}") is ignored by browsers; the real destination is ${host}` });
+    info.issues.push({ id: 'userinfo', detail: `the part before "@" ("${safeDecode(url.username)}") is ignored by browsers; the real destination is ${host}` });
   }
   if (URL_SHORTENERS.has(host.replace(/^www\./, ''))) {
     info.issues.push({ id: 'shortener', detail: `${host} is a link shortener: the real destination is hidden until you click` });
@@ -140,17 +148,21 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
  * Pulls links out of HTML. shortcut: regex over <a>/<area>/<form>, which covers what mail
  * clients render as clickable; a real DOM parser would also catch malformed markup.
  */
+// Browsers drop tabs and newlines inside URLs, so "java&#10;script:" still runs script.
+const cleanHref = (raw: string) => decodeHtmlEntities(raw).replace(/[\t\n\r]/g, '').trim();
+
 export function extractHtmlLinks(html: string): { href: string; text: string }[] {
   const out: { href: string; text: string }[] = [];
   const attr = (tag: string, name: string) =>
-    new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
+    // Attribute must start after whitespace or a quote, so data-href is not mistaken for href.
+    new RegExp(`(?:^|[\\s"'/])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
   for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
     const h = attr(m[1], 'href');
-    if (h) out.push({ href: decodeHtmlEntities(h[1] ?? h[2] ?? h[3]).trim(), text: decodeHtmlEntities(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim() });
+    if (h) out.push({ href: cleanHref(h[1] ?? h[2] ?? h[3]), text: decodeHtmlEntities(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim() });
   }
   for (const m of html.matchAll(/<(area|form)\b([^>]*)>/gi)) {
     const h = attr(m[2], m[1].toLowerCase() === 'form' ? 'action' : 'href');
-    if (h) out.push({ href: decodeHtmlEntities(h[1] ?? h[2] ?? h[3]).trim(), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
+    if (h) out.push({ href: cleanHref(h[1] ?? h[2] ?? h[3]), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
   }
   return out;
 }

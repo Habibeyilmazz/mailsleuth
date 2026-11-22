@@ -83,7 +83,8 @@ function unquote(v: string): string {
 /** Parses `type/sub; a=b; c*=utf-8''x%20y` including RFC 2231 continuations. */
 export function parseStructuredHeader(raw: string): { value: string; params: Record<string, string> } {
   const [first = '', ...rest] = splitParams(raw);
-  const pieces: Record<string, { parts: string[]; encoded: boolean[] }> = {};
+  // Null-prototype maps: parameter names like "constructor" come from the attacker.
+  const pieces: Record<string, { parts: string[]; encoded: boolean[] }> = Object.create(null);
   for (const p of rest) {
     const eq = p.indexOf('=');
     if (eq <= 0) continue;
@@ -91,12 +92,13 @@ export function parseStructuredHeader(raw: string): { value: string; params: Rec
     const val = unquote(p.slice(eq + 1));
     const m = /^([^*]+)(?:\*(\d+))?(\*)?$/.exec(key);
     if (!m) continue;
-    const entry = (pieces[m[1]] ??= { parts: [], encoded: [] });
     const idx = m[2] ? Number(m[2]) : 0;
+    if (idx > 64) continue; // real continuations are short; huge indexes would allocate sparse arrays
+    const entry = (pieces[m[1]] ??= { parts: [], encoded: [] });
     entry.parts[idx] = val;
     entry.encoded[idx] = Boolean(m[3]);
   }
-  const params: Record<string, string> = {};
+  const params: Record<string, string> = Object.create(null);
   for (const [name, { parts, encoded }] of Object.entries(pieces)) {
     let charset = 'utf-8';
     let binary = '';
@@ -140,7 +142,8 @@ function splitMultipart(body: string, boundary: string): string[] {
   const open = '--' + boundary;
   let cur: string[] | null = null;
   for (const line of lines) {
-    const t = line.replace(/[ \t]*\r?\n$/, '');
+    // trimEnd, not a regex: /[ \t]*\n$/ is quadratic on long whitespace runs.
+    const t = line.startsWith('--') ? line.trimEnd() : '';
     if (t === open || t === open + '--') {
       if (cur) parts.push(cur.join('').replace(/\r?\n$/, ''));
       if (t === open + '--') return parts;

@@ -195,7 +195,10 @@ function renderAuth(a: Analysis) {
       h('p', { class: 'auth-head' }, h('strong', {}, r.method.toUpperCase()), h('span', { class: 'result' }, r.result), r.domain && h('span', { class: 'mono' }, r.domain)),
       h('p', {}, r.explanation),
     )));
-  return section('auth', 'Authentication', `Checks run by ${primary.authservId || 'the receiving server'} when the message arrived (the topmost Authentication-Results header, the only one written by your side).`,
+  const intro = a.auth.verified
+    ? `Checks run by ${primary.authservId || 'the receiving server'} when the message arrived (the topmost Authentication-Results header, the only one written by your side).`
+    : 'These results could not be tied to any receiving server in the delivery path, so anyone could have written them. Treat them as unverified.';
+  return section('auth', 'Authentication', intro,
     results(primary),
     alignment.fromDomain && h('p', { class: 'note' },
       `Alignment with the From domain (${alignment.fromDomain}): SPF ${alignment.spfAligned ? 'aligned' : 'not aligned'}, DKIM ${alignment.dkimAligned ? 'aligned' : 'not aligned'}. DMARC needs at least one of them to pass and align.`),

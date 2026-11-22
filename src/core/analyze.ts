@@ -86,6 +86,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'not-aligned': ['authentication', 'low', 'No passing check matches the From domain', 'Some checks may have passed, but for a different domain than the one in the From address, so nothing confirms the visible sender.'],
   'dmarc-none': ['authentication', 'low', 'The From domain has no DMARC protection', 'Without DMARC, anyone can send mail that looks like it comes from this domain and receivers have no policy to block it.'],
   'arc-fail': ['authentication', 'low', 'Broken forwarding chain (ARC)', 'An intermediary\'s record of earlier checks does not validate.'],
+  'auth-unverified': ['authentication', 'info', 'Authentication results cannot be tied to a receiving server', 'The pass/fail results below were not written by a server that appears in the delivery path, so anyone could have typed them. Passing results are not counted in the email\'s favour.'],
   'no-auth-results': ['authentication', 'info', 'No authentication results found', 'There is no Authentication-Results header, so SPF/DKIM/DMARC could not be reviewed. Paste the full headers (not just the body) to see them.'],
   'text-mismatch': ['links', 'high', 'Link text shows one site but goes to another', 'The visible text of a link can say anything. Here it names a different site than where the link really leads.'],
   'userinfo': ['links', 'high', 'Link uses the "@" trick', 'In web addresses everything before "@" is a username that browsers ignore, so a trusted name there is pure decoration.'],
@@ -189,6 +190,9 @@ function authChecks(f: Findings, auth: AuthReport) {
     f.add('no-auth-results', auth.receivedSpf ? `Only a Received-SPF header was found: ${auth.receivedSpf.slice(0, 80)}` : '');
     return;
   }
+  if (!auth.verified) {
+    f.add('auth-unverified', auth.primary.authservId ? `Authentication-Results by "${auth.primary.authservId}", which is not a receiving server in any Received header` : 'no Received headers to tie the results to');
+  }
   const where = auth.primary.authservId ? ` (checked by ${auth.primary.authservId})` : '';
   const dmarc = resultFor(auth, 'dmarc');
   const spf = resultFor(auth, 'spf');
@@ -274,7 +278,9 @@ function nextSteps(level: Analysis['level'], f: Findings, attachments: Attachmen
 function reassurances(auth: AuthReport, links: LinkInfo[], attachments: AttachmentInfo[]): string[] {
   const out: string[] = [];
   const dmarc = resultFor(auth, 'dmarc');
-  if (dmarc?.result === 'pass') {
+  if (!auth.verified) {
+    // Unverifiable results earn no reassurance.
+  } else if (dmarc?.result === 'pass') {
     out.push(`DMARC passed for ${dmarc.domain ?? auth.alignment.fromDomain}: the From address really belongs to the systems that sent it.`);
   } else if (auth.alignment.dkimAligned) {
     out.push(`A valid DKIM signature from the From domain (${auth.alignment.fromDomain}) is present.`);
@@ -302,14 +308,15 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     cc: parseAddressList(getHeader(h, 'cc')),
   };
 
+  const hops = buildHops(getHeaders(h, 'received'));
   const auth = buildAuthReport({
     authResults: getHeaders(h, 'authentication-results'),
     arcAuthResults: getHeaders(h, 'arc-authentication-results'),
     arcSeals: getHeaders(h, 'arc-seal'),
     receivedSpf: getHeader(h, 'received-spf'),
     fromDomain: from?.domain ?? '',
+    receivedBy: hops.flatMap((x) => (x.by ? [x.by] : [])),
   });
-  const hops = buildHops(getHeaders(h, 'received'));
 
   const texts: string[] = [];
   const rawLinks: { href: string; text: string | null; source: LinkInfo['source'] }[] = [];
@@ -347,14 +354,16 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     }
   }
 
-  const byHref = new Map<string, LinkInfo>();
+  // One entry per distinct (URL, visible text): the same URL behind "Home" and behind
+  // "paypal.com" must both be checked. Bare URLs from the plain-text part only add new URLs.
+  const seen = new Map<string, LinkInfo>();
+  const htmlHrefs = new Set(rawLinks.filter((l) => l.source === 'html').map((l) => l.href));
   for (const l of rawLinks) {
-    if (isIgnorableHref(l.href)) continue;
-    // An HTML link with text beats the same URL found bare in the plain-text alternative.
-    if (byHref.has(l.href) && !(l.text && !byHref.get(l.href)!.text)) continue;
-    byHref.set(l.href, analyzeLink(l.href, l.text, l.source));
+    const key = `${l.href}\0${l.text ?? ''}`;
+    if (isIgnorableHref(l.href) || seen.has(key) || (l.source === 'text' && htmlHrefs.has(l.href))) continue;
+    seen.set(key, analyzeLink(l.href, l.text, l.source));
   }
-  const links = [...byHref.values()];
+  const links = [...seen.values()];
   const bodyText = texts.join('\n\n').trim();
   const language = scanLanguage(`${summary.subject}\n${bodyText}`);
 

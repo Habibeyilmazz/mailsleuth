@@ -91,4 +91,9 @@ export const MULTI_LABEL_SUFFIXES = new Set([
   'net.tr', 'edu.tr', 'co.nz', 'org.nz', 'co.za', 'org.za', 'com.mx', 'co.in', 'org.in', 'gov.in', 'com.cn',
   'net.cn', 'org.cn', 'com.sg', 'com.hk', 'co.kr', 'or.kr', 'com.ar', 'com.co', 'com.pl', 'co.il', 'com.my',
   'com.ua', 'com.ru', 'com.es', 'co.id', 'com.ph', 'com.vn', 'com.pk', 'com.eg', 'com.sa', 'co.th',
+  // Hosting platforms where every subdomain belongs to a different customer (PSL "private" section).
+  'github.io', 'gitlab.io', 'netlify.app', 'vercel.app', 'pages.dev', 'workers.dev', 'herokuapp.com',
+  'azurewebsites.net', 'blogspot.com', 'web.app', 'firebaseapp.com', 'appspot.com', 'onrender.com',
+  'glitch.me', 'wixsite.com', 'weebly.com', 'ngrok.io', 'ngrok-free.app', 'trycloudflare.com', 'r2.dev',
+  'cloudfront.net', 'webflow.io', 'framer.app', 'translate.goog',
 ]);

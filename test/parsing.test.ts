@@ -78,6 +78,21 @@ describe('mime', () => {
   });
 });
 
+describe('hostile MIME input', () => {
+  it('survives prototype-named and absurdly indexed parameters', () => {
+    expect(parseStructuredHeader('text/plain; constructor=x').params['constructor']).toBe('x');
+    const t = performance.now();
+    expect(parseStructuredHeader('attachment; filename*4294967294=x').params['filename']).toBeUndefined();
+    expect(performance.now() - t).toBeLessThan(100);
+  });
+  it('splits multiparts with long whitespace runs in linear time', () => {
+    const t = performance.now();
+    const msg = parseMessage('Content-Type: multipart/mixed; boundary=b\n\n--b\n\n' + ' '.repeat(200000) + 'X\n--b--\n');
+    expect(msg.children).toHaveLength(1);
+    expect(performance.now() - t).toBeLessThan(500);
+  });
+});
+
 describe('addresses', () => {
   it('parses names, quoted commas, encoded names and bare addresses', () => {
     const list = parseAddressList('"Doe, Jane" <jane@example.com>, =?UTF-8?Q?Jos=C3=A9?= <jose@Example.ORG>, bob@example.net (Bob)');
@@ -108,6 +123,16 @@ describe('received', () => {
 });
 
 describe('authentication results', () => {
+  it('handles nested comments and method versions', () => {
+    expect(parseAuthResults('mx; dmarc=(outer (inner)) fail header.from=example.com').results[0].result).toBe('fail');
+    expect(parseAuthResults('mx; dkim/1=pass header.d=example.com').results[0]).toMatchObject({ method: 'dkim', result: 'pass' });
+  });
+  it('does not verify results whose server is absent from the Received chain', () => {
+    const base = { arcAuthResults: [], arcSeals: [], receivedSpf: null, fromDomain: 'company.example' };
+    expect(buildAuthReport({ ...base, authResults: ['forged; dmarc=pass header.from=company.example'], receivedBy: [] }).verified).toBe(false);
+    expect(buildAuthReport({ ...base, authResults: ['forged; dmarc=pass header.from=company.example'], receivedBy: ['mx.example.net'] }).verified).toBe(false);
+  });
+
   it('parses a Google-style header with comments and properties', () => {
     const ar = parseAuthResults(
       'mx.google.example; dkim=pass header.i=@shop.example header.s=s1; spf=softfail (domain of x@bounce.shop.example does not designate 1.2.3.4) smtp.mailfrom=x@bounce.shop.example; dmarc=fail (p=REJECT sp=REJECT dis=NONE) header.from=shop.example',
@@ -135,8 +160,10 @@ describe('authentication results', () => {
       arcSeals: ['i=1; a=rsa-sha256; cv=none; d=lists.example', 'i=2; a=rsa-sha256; cv=pass; d=mx.example'],
       receivedSpf: null,
       fromDomain: 'shop.example',
+      receivedBy: ['mx.example.net'],
     });
     expect(report.primary?.authservId).toBe('mx.example.net');
+    expect(report.verified).toBe(true);
     expect(report.earlier).toHaveLength(1);
     expect(report.alignment).toEqual({ fromDomain: 'shop.example', spfAligned: true, dkimAligned: false });
     expect(report.arc.map((a) => a.instance)).toEqual([2, 1]);
