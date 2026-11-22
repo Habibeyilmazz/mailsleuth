@@ -108,6 +108,16 @@ describe('end-to-end on the bundled samples', () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
   });
+  it('refuses a PDF, image, archive or program instead of calling it low risk', async () => {
+    // Users drop the suspicious attachment itself; "No strong warning signs found" for an invoice.pdf is false comfort.
+    await expect(analyze('%PDF-1.7\n1 0 obj\n<< /URI (https://evil.example/) >>\n')).rejects.toThrow('looks like a PDF, not an email');
+    await expect(analyze('\x89PNG\r\n\x1a\n\0\0\0\rIHDR')).rejects.toThrow('PNG image');
+    await expect(analyze('PK\x03\x04\x14\0\0\0')).rejects.toThrow('ZIP archive');
+    await expect(analyze('MZ\x90\0\x03\0\0\0')).rejects.toThrow('Windows program');
+    // Text that happens to start like a file signature is still analyzed.
+    expect((await analyze('MZ Bank: verify your account today')).findings.map((f) => f.id)).toContain('language-credentials');
+    expect((await analyze('<html><body><a href="https://evil.example/">Sign in</a></body></html>')).links).toHaveLength(1);
+  });
   it('reads a file saved with a UTF-8 byte order mark', async () => {
     // Windows editors add one; it made the first header "﻿From" and hid the sender.
     const a = await analyze('\xEF\xBB\xBFFrom: "PayPal" <service@paypa1.example>\nSubject: hi\n\nhello');

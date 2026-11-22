@@ -1,5 +1,5 @@
 import { findEmailsInText, parseAddressList, parseReturnPath, type Address } from './address';
-import { inspectAttachment, KIND_LABEL, type AttachmentIssue } from './attachments';
+import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from './attachments';
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, sameOrg, type DomainIssue } from './domains';
@@ -316,6 +316,12 @@ function fromMsg(binary: string): MsgResult {
 export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   binary = binary.replace(/^\xEF\xBB\xBF/, ''); // a UTF-8 byte order mark would become part of the first header's name
   const msg = isCompoundFile(binary) ? fromMsg(binary) : null;
+  // A dropped attachment (invoice.pdf) would otherwise be called "low risk". HTML and RTF can be email text;
+  // "MZ" is only taken as a program when binary bytes follow, so a pasted "MZ Bank: …" is still read.
+  const kind = msg ? null : sniffKind(binaryToBytes(binary.slice(0, 0x8010)));
+  if (kind && kind !== 'html' && kind !== 'rtf' && (kind !== 'exe' || binary.slice(0, 1024).includes('\0'))) {
+    throw new Error(`this looks like a ${KIND_LABEL[kind]}, not an email. To check an attachment, analyze the email it came in (.eml or .msg): that also gives its SHA-256 for a VirusTotal lookup.`);
+  }
   const root = parseMessage(msg ? msg.mime : binary);
   const h = root.headers;
   const from = parseAddressList(getHeader(h, 'from'))[0] ?? null;
