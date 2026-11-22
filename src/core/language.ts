@@ -36,7 +36,7 @@ const PATTERNS: Record<LanguageCategory, RegExp[]> = {
   threat: [
     /\blegal action\b/i,
     /\b(your )?(account|device|computer) (has been|was) (hacked|compromised|infected)\b/i,
-    /\b(police|court|arrest|lawsuit)\b/i,
+    /\b(police|arrest|lawsuit|(to|in) court|court (order|summons|case|hearing|date|appearance))\b/i, // not "tennis court"
   ],
 };
 

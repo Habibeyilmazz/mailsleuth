@@ -230,5 +230,12 @@ describe('language', () => {
   });
   it('finds nothing in ordinary text', () => {
     expect(scanLanguage('Here are the meeting notes from Tuesday. See you next week.')).toEqual([]);
+    // "court" on its own is a tennis or food court, not a threat.
+    expect(scanLanguage('The new tennis court opens Saturday; lunch is at the food court.')).toEqual([]);
+  });
+  it('still reads court threats', () => {
+    for (const text of ['You will be taken to court.', 'A court order has been issued.', 'Ignoring this court summons', 'We will see you in court']) {
+      expect(scanLanguage(text).map((h) => h.category), text).toEqual(['threat']);
+    }
   });
 });
