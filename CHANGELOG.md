@@ -4,6 +4,17 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Security
+- Denial of service: a 200 KB From/Reply-To header of `(` characters, `<a>(x` runs, or `a.a.a…` in a display name, an Authentication-Results header with 200,000 nested comments, or a Received date full of `(` froze the browser tab or CLI for 15 s to several minutes (quadratic regexes and a peel-one-level-per-pass loop). All are linear now; a 700 KB host name went from 4.5 s to 0.2 s. Timing regression tests in `test/parsing.test.ts` fail on the old code.
+- Display spoofing: bidi override/isolate characters in email text were obeyed, so `photo<U+202E>gpj.exe` displayed as `photoexe.jpg` in the attachment list and even in the warning meant to reveal it (`JSON.stringify` does not escape U+202E). The web UI now shows them as `⟨U+202E⟩` markers; CLI output and the copied JSON report escape them and C1 controls as `\uXXXX`. Covered by unit tests, `npm run screenshots` and a CI step.
+- Analysis abort: a From domain with a 200,000-character `xn--` label overflowed the call stack in the punycode decoder, so the page showed only an error and the CLI crashed. Labels longer than DNS allows (63 octets) are left undecoded.
+- Missed links (baseStriker): relative links under `<base href="https://attacker.example/">` were skipped as relative; they are now resolved against the base, as mail clients that honor `<base>` do.
+- Missed host: `href="https://pay&shy;pa1.example"` opens paypa1.example in a browser, but the analyzer kept `&shy;` in the host name and its domain checks saw a name that does not exist.
+- Speed: brand skeletons are computed once instead of once per link (80,000 distinct links: 5.0 s to 0.4 s).
+- More quadratic paths, found by a Codex second-opinion review of `src/core` and by the new timing fuzz: long `\r` runs in HTML (1 s per 40 KB), long words in Authentication-Results properties, spaces after `<addr>`, a whitespace run in the authserv-id, a punctuation run after a `www.` link, and `evidence.includes()` over thousands of distinct links. The page now also caps evidence lines at 200.
+- Comments the RFCs allow no longer hide content: `multipart/mixed (a (b))`, `multipart / mixed`, `boundary=b (x)` (each hid every attachment), `base64 (a (b))` (body left undecoded), `(a"b)` or `(a\()` in Authentication-Results (later results such as `dmarc=fail` were dropped), a comment after the authserv-id (results wrongly unverified), `<a@x> (one) (two)` (domain read as `x>`) and `"a(b)"@x`. One quote- and escape-aware `stripComments` in `mime.ts` handles all of them.
+- Missed links: protocol-relative `href="//evil.example/a.exe"` and SVG `xlink:href`.
+
 ### Fixed
 - CLI read the whole file or pipe before checking the 50 MB limit, so `mailsleuth /dev/zero` exhausted memory; it now stops reading at the limit (CI checks it).
 - Web: a hostile email with hundreds of thousands of headers, hops or links built that many DOM rows (500,000 nodes for 1 MB of headers). Each list now shows the first 200 and says how many more the JSON report holds.
@@ -29,11 +40,15 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - README brand count (44, not 43); the CLI build no longer copies the web favicon.
 
 ### Added
+- `npm run fuzz` (`test/fuzz.test.ts`): every syntax fragment, then random mixes, repeated to 60 KB in every header and body position; fails on any analysis over 500 ms or any exception. CI runs it with 3,000 random cases.
 - Ctrl+Enter (Cmd+Enter on a Mac) in the paste box analyzes it.
 - Touch screens see "Choose an .eml file" instead of "Drop an .eml file here".
 - `npm run screenshots` now also checks: no horizontal scroll at 390px on every sample (measured against the device width, since mobile Chrome widens `innerWidth` to fit wide content and hid the old bug), the last next step reachable by keyboard, the empty-paste error, a slow file read racing a sample, and an unreadable file.
 
 ### Notes for the next contributor
+- Security round (round 3): after the fixes above, `npm run fuzz` with seeds 1-4 (about 100,000 cases) found nothing over 40 ms. `npm audit`: 0 vulnerabilities. Workflows already had least-privilege permissions, SHA-pinned actions and `persist-credentials: false` (the tag comments next to the SHAs could not be re-checked: this machine could not reach other GitHub repos). History scan found no secrets or real addresses. Codex reviewed `src/core` this round (its first, security-worded prompt was refused by its content filter; a plain code-review prompt worked). Its findings not acted on: unknown `Content-Disposition` values and `Content-Disposition: attachment` on a whole multipart are not treated as attachments (content is still analyzed as body), and CFWS inside property names (`header . from`) is not parsed.
+- When adding a regex, run `npm run fuzz`; every bug it found was a `\s*`, `[^)]*` or `+` that can restart from every position of a long run. A lookbehind such as `(?<![\w.-])` or a one-pass loop fixed each.
+- An editing tool in this round silently turned `\u202E` escapes into the raw character; write bidi characters in sources as escapes and grep for raw ones before committing.
 - Sample 05 imitates Microsoft 365 headers with reserved `example.net` host names, so it now shows "cannot be tied to a receiving server"; that is the new rule working, not a bug.
 - Codex reviewed the web UI and CLI in the design round (after a usage-limit wait); its six findings are fixed above. It did not review `src/core` again.
 - README screenshots (`docs/screenshots/`) are copied from `test-results/screenshots/` after `npm run screenshots`.

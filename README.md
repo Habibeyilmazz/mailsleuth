@@ -62,6 +62,7 @@ Each finding adds points by severity (high 25, medium 12, low 5, capped at 100):
 - No network requests. The built page ships a Content-Security-Policy with `connect-src 'none'`, so the browser itself blocks any attempt to send data; CI checks the policy is present.
 - No fonts, analytics or CDNs are loaded.
 - Links in the email are shown defanged (`hxxps://evil[.]example`) and are never clickable.
+- Invisible text-direction characters (U+202A-202E, U+2066-2069) from the email are shown as markers like `⟨U+202E⟩` instead of reordering what you read; the CLI and "Copy JSON report" write them, and C1 control characters, as `\uXXXX` escapes.
 - The VirusTotal, URLhaus and MalwareBazaar buttons are ordinary links that you choose to click. They send only that one URL, host name or hash to that service, never the email.
 
 ## How it works
@@ -93,6 +94,7 @@ Raw input is kept as a byte-per-character string so MIME offsets stay exact; tex
 ```sh
 npm run typecheck
 npm test                 # Vitest unit and end-to-end tests on the samples
+npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about 15 s)
 npm run build
 npm run screenshots      # drives the built app in Chromium (Playwright), fails on console errors or external requests
 ```
@@ -104,7 +106,8 @@ npm run screenshots      # drives the built app in Chromium (Playwright), fails 
 - Language checks are English only.
 - Attachments are inspected, not decompressed: macros inside nested archives, PDF JavaScript and remote-template tricks in Office files are not detected.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
-- The page lists at most 200 headers, hops, links, attachments, MIME parts or ZIP entries per section and says how many it left out; findings and "Copy JSON report" cover all of them.
+- Very large inputs cost memory: a 10 MB email of 450,000 distinct links takes about 3 s and 1 GB in the CLI, whose JSON then lists every link.
+- The page lists at most 200 headers, hops, links, attachments, MIME parts, ZIP entries or evidence lines per section and says how many it left out; findings and "Copy JSON report" cover all of them.
 - Authentication results are only counted in the email's favour when the checking server matches the newest `Received` hop. Setups where a separate filtering service checks mail before an internal server (or Gmail's "by" an IP address only, followed by a different host) can show genuine results as unverified; that removes a reassurance but never adds points.
 
 ## Roadmap
