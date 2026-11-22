@@ -212,6 +212,15 @@ describe('attachments', () => {
     expect(readZipEntries(joined).map(({ name, encrypted }) => ({ name, encrypted }))).toEqual([{ name: 'a.txt', encrypted: false }, { name: 'b.js', encrypted: true }]);
     expect(readZipEntries(zip).map((e) => e.name)).toEqual(['readme.txt', 'invoice.pdf.exe']); // listed once
   });
+  it('does not read the entries of a stored ZIP or .docx inside a ZIP as its own', () => {
+    // Before, the inner [Content_Types].xml made the outer archive an "Office document" and hid its other files.
+    const docx = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/vbaProject.bin', data: 'x' }]);
+    const zip = makeZip([{ name: 'Report.docx', data: docx }, { name: 'run.js', data: 'x' }]);
+    expect(sniffKind(zip)).toBe('zip');
+    expect(readZipEntries(zip).map((e) => e.name)).toEqual(['Report.docx', 'run.js']);
+    expect(readZipEntries(zip.subarray(0, zip.length - 22)).map((e) => e.name)).toEqual(['Report.docx', 'run.js']); // no central directory
+    expect(attIssues('docs.zip', zip)).toEqual(['archive-risky-content']);
+  });
   it('calls a password-protected .docx/.xlsx encrypted, not a type mismatch', () => {
     // Office stores an encrypted OOXML file in an OLE container with an "EncryptedPackage" stream.
     const ole = (stream: string) => new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, ...new TextEncoder().encode(stream.split('').join('\0') + '\0')]);

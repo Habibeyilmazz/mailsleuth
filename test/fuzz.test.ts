@@ -23,6 +23,8 @@ const place = (where: number, header: string, blob: string) =>
     // Attachments whose content is scanned for links: a PDF and an HTML page (and the Office document below).
     `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.pdf\n\n%PDF-1.7\n${blob}\n--b--\n`,
     `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.html\n\n${blob}\n--b--\n`,
+    // A ZIP whose files are the blob (one is read as HTML).
+    `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.zip\nContent-Transfer-Encoding: base64\n\n${Buffer.from(makeZip([{ name: 'a.html', data: blob }, { name: 'b.bin', data: blob }])).toString('base64')}\n--b--\n`,
     // An Office document whose relationship part is the blob.
     `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.docx\nContent-Transfer-Encoding: base64\n\n${Buffer.from(makeZip([{ name: '[Content_Types].xml', data: '' }, { name: 'word/_rels/document.xml.rels', data: blob }])).toString('base64')}\n--b--\n`,
   ][where];
@@ -41,11 +43,11 @@ describe.runIf(process.env.FUZZ)('timing fuzz', () => {
       if (ms > LIMIT_MS) slow.push(`${ms.toFixed(0)} ms: ${header} (${where}) ${JSON.stringify(blob.slice(0, 60))}`);
     };
     // Every single fragment repeated in every header and body position: the shape of every bug found so far.
-    for (const header of HEADERS) for (let where = 0; where < 6; where++) for (const motif of VOCAB) await check(header, where, motif, pick(VOCAB));
+    for (const header of HEADERS) for (let where = 0; where < 7; where++) for (const motif of VOCAB) await check(header, where, motif, pick(VOCAB));
     // Then random mixes of up to four fragments.
     for (let i = 0; i < Number(process.env.FUZZ_CASES ?? 10000); i++) {
       const motif = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => pick(VOCAB)).join('');
-      await check(pick(HEADERS), Math.floor(rnd() * 6), motif, rnd() < 0.5 ? pick(VOCAB) + pick(VOCAB) : '');
+      await check(pick(HEADERS), Math.floor(rnd() * 7), motif, rnd() < 0.5 ? pick(VOCAB) + pick(VOCAB) : '');
     }
     expect(slow).toEqual([]);
   }, 900_000);

@@ -286,7 +286,8 @@ function renderLinks(a: Analysis) {
     more(a.links));
 }
 
-const linksIn = (a: Analysis, filename: string) => a.links.filter((l) => l.attachment === filename).length;
+// Files inside an attached ZIP are labelled "archive.zip › entry".
+const linksIn = (a: Analysis, filename: string) => a.links.filter((l) => l.attachment === filename || l.attachment?.startsWith(`${filename} › `)).length;
 
 function renderAttachments(a: Analysis) {
   if (!a.attachments.length) return section('attachments', 'Attachments', null, h('p', { class: 'empty' }, 'No attachments.'));

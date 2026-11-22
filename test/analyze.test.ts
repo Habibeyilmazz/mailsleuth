@@ -128,6 +128,34 @@ describe('end-to-end on the bundled samples', () => {
     expect(b.attachments[0].issues).toEqual([]);
   });
 
+  it('checks links and content of the files inside an attached ZIP, one level deep', async () => {
+    const page = '<html><form action="https://rnicrosoft-online.example/login.php"><input type=password></form></html>';
+    const deflate = async (t: string) => new Uint8Array(await new Response(new Blob([t]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+    const docm = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/vbaProject.bin', data: 'x' }]);
+    const inner = makeZip([{ name: 'deep.html', data: '<a href="https://deep.example/">x</a>' }]);
+    const zip = makeZip([
+      { name: 'Payment/', data: '' },
+      { name: 'Payment/Remittance.html', data: page, deflated: await deflate(page) },
+      { name: 'Payment/Statement.pdf', data: makePdf([], ['<< /S /URI /URI (https://bit.ly/x) >>']) },
+      { name: 'Payment/Report.docx', data: docm },
+      { name: 'Payment/more.zip', data: inner },
+      { name: 'Payment/locked.pdf', data: '%PDF-1.7 /URI (https://hidden.example/)', encrypted: true },
+    ]);
+    const b64 = Buffer.from(zip).toString('base64');
+    const eml = `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nhi\n--b\nContent-Type: application/zip\nContent-Disposition: attachment; filename=Remittance.zip\nContent-Transfer-Encoding: base64\n\n${b64}\n--b--\n`;
+    const a = await analyze(eml);
+    expect(a.links.map((l) => [l.href, l.source, l.attachment])).toEqual([
+      ['https://rnicrosoft-online.example/login.php', 'html', 'Remittance.zip › Payment/Remittance.html'],
+      ['https://bit.ly/x', 'pdf', 'Remittance.zip › Payment/Statement.pdf'],
+    ]);
+    // The HTML entry is already named by archive-risky-content; the macro is only visible by opening the inner document.
+    expect(a.attachments[0].issues.map((i) => i.id)).toEqual(['encrypted-archive', 'archive-risky-content', 'office-macro', 'archive-risky-content']);
+    expect(a.attachments[0].issues[2].detail).toMatch(/^in Payment\/Report\.docx: the document contains a VBA macro/);
+    expect(a.attachments[0].issues[3].detail).toBe('in Payment/more.zip: archive contains deep.html');
+    expect(ids(a)).toEqual(['archive-risky-content', 'attachment-links', 'encrypted-archive', 'lookalike-domain', 'no-auth-results', 'office-macro', 'shortener']);
+    expect(a.findings.find((f) => f.id === 'attachment-links')!.evidence).toEqual(['Remittance.zip › Payment/Remittance.html: 1 link', 'Remittance.zip › Payment/Statement.pdf: 1 link']);
+  });
+
   it('never produces findings without an explanation', async () => {
     for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml', '09-contract-remote-template.eml']) {
       for (const f of (await sample(name)).findings) {

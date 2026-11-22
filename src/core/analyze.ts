@@ -1,5 +1,5 @@
 import { findEmailsInText, parseAddressList, parseReturnPath, type Address } from './address';
-import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from './attachments';
+import { inspectAttachment, isRiskyName, KIND_LABEL, readZipEntries, sniffKind, zipEntryData, type AttachmentIssue } from './attachments';
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, readable, sameOrg, type DomainIssue } from './domains';
@@ -340,6 +340,31 @@ function reassurances(auth: AuthReport, links: LinkInfo[], attachments: Attachme
 }
 
 const MAX_NESTING = 3;
+const MAX_ZIP_INFLATED = 32 * 1024 * 1024; // per archive, like PDFs and Office files
+const MAX_ZIP_ENTRIES = 500;
+const NAME_COVERED = new Set<AttachmentIssue['id']>(['executable', 'disk-image', 'html-attachment', 'onenote']);
+
+type RawLink = { href: string; text: string | null; source: LinkInfo['source']; attachment?: string };
+
+/** Links and content issues inside one file (an attachment, or a file in an attached ZIP), by detected type. */
+async function scanFile(label: string, body: Uint8Array, inspected: ReturnType<typeof inspectAttachment>, charset: string | undefined, out: RawLink[]): Promise<void> {
+  if (inspected.kind === 'pdf') {
+    const pdf = await inspectPdf(body);
+    inspected.issues.push(...pdf.issues);
+    for (const href of pdf.uris) out.push({ href, text: null, source: 'pdf', attachment: label });
+  } else if (inspected.kind === 'ooxml') {
+    const office = await inspectOffice(body);
+    inspected.issues.push(...office.issues);
+    for (const href of office.uris) out.push({ href, text: null, source: 'office', attachment: label });
+  } else if (inspected.issues.some((i) => i.id === 'html-attachment')) {
+    const html = decodeCharset(body, charset);
+    for (const l of extractHtmlLinks(html)) out.push({ ...l, source: 'html', attachment: label });
+    // Bare URLs anywhere in the file: script redirects and <meta> refreshes in HTML phishing pages. Not XML namespaces.
+    for (const href of extractTextLinks(decodeHtmlEntities(html))) {
+      if (!href.startsWith('http://www.w3.org/')) out.push({ href, text: null, source: 'text', attachment: label });
+    }
+  }
+}
 /** Outlook .msg input becomes MIME; other Office compound files (.doc, .xls) are refused. */
 function fromMsg(binary: string): MsgResult {
   let msg: MsgResult | null;
@@ -395,7 +420,6 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   });
 
   const texts: string[] = [];
-  type RawLink = { href: string; text: string | null; source: LinkInfo['source']; attachment?: string };
   const rawLinks: RawLink[] = [];
   const attachmentLinks: RawLink[] = []; // listed after the email's own links, so a link in both keeps its body entry
   const attachments: AttachmentInfo[] = [];
@@ -415,20 +439,20 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
       // An attached Outlook .msg (common in user reports) is analyzed like an attached .eml; other Office files are not emails.
       const nested = depth < MAX_NESTING && (isEmail || isCompoundFile(bytesToBinary(part.body.subarray(0, 8))));
       const inspected = inspectAttachment(filename, part.body);
-      if (inspected.kind === 'pdf') {
-        const pdf = await inspectPdf(part.body);
-        inspected.issues.push(...pdf.issues);
-        for (const href of pdf.uris) attachmentLinks.push({ href, text: null, source: 'pdf', attachment: filename });
-      } else if (inspected.kind === 'ooxml') {
-        const office = await inspectOffice(part.body);
-        inspected.issues.push(...office.issues);
-        for (const href of office.uris) attachmentLinks.push({ href, text: null, source: 'office', attachment: filename });
-      } else if (inspected.issues.some((i) => i.id === 'html-attachment')) {
-        const html = decodeCharset(part.body, part.params['charset']);
-        for (const l of extractHtmlLinks(html)) attachmentLinks.push({ ...l, source: 'html', attachment: filename });
-        // Bare URLs anywhere in the file: script redirects and <meta> refreshes in HTML phishing pages. Not XML namespaces.
-        for (const href of extractTextLinks(decodeHtmlEntities(html))) {
-          if (!href.startsWith('http://www.w3.org/')) attachmentLinks.push({ href, text: null, source: 'text', attachment: filename });
+      await scanFile(filename, part.body, inspected, part.params['charset'], attachmentLinks);
+      if (inspected.kind === 'zip') {
+        // One level into a ZIP: the files a user would open from it get the same link and content checks.
+        let budget = MAX_ZIP_INFLATED;
+        const risky = new Set(inspected.zipEntries.filter(isRiskyName));
+        for (const e of readZipEntries(part.body).filter((x) => !x.name.endsWith('/')).slice(0, MAX_ZIP_ENTRIES)) {
+          if (budget <= 0) break;
+          const data = await zipEntryData(part.body, e, budget);
+          if (!data) continue;
+          budget -= data.length;
+          const inner = inspectAttachment(e.name, data);
+          await scanFile(`${filename} › ${e.name}`, data, inner, undefined, attachmentLinks);
+          // archive-risky-content already names a risky-named entry; repeating that it is a program or HTML adds nothing.
+          for (const i of inner.issues) if (!(risky.has(e.name) && NAME_COVERED.has(i.id))) inspected.issues.push({ id: i.id, detail: `in ${e.name}: ${i.detail}` });
         }
       }
       attachments.push({

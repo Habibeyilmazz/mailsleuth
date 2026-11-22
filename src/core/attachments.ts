@@ -1,5 +1,6 @@
 import { readable } from './domains';
 import { bytesToBinary, revealBidi } from './encoding';
+import { inflate } from './pdf';
 
 export type AttachmentIssueId =
   | 'rlo-filename'
@@ -94,16 +95,33 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
     p += 46 + nameLen + extraLen + commentLen;
   }
   const listed = new Set(entries.map((e) => e.name));
-  for (let i = b.indexOf(0x50); i >= 0 && i + 30 <= b.length; i = b.indexOf(0x50, i + 1)) {
-    if (view.getUint32(i, true) !== 0x04034b50) continue;
+  const known = new Map(entries.map((e) => [e.offset, e]));
+  // Each header's data is skipped, so the headers of a stored ZIP or .docx inside this one are not read as this archive's.
+  for (let i = b.indexOf(0x50); i >= 0 && i + 30 <= b.length; ) {
+    let next = i + 1;
     const nameLen = view.getUint16(i + 26, true);
-    if (!nameLen || i + 30 + nameLen > b.length) continue;
-    const name = decoder.decode(b.subarray(i + 30, i + 30 + nameLen));
-    if (listed.has(name)) continue;
-    listed.add(name);
-    entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1, offset: i, method: view.getUint16(i + 8, true), size: view.getUint32(i + 18, true) });
+    if (view.getUint32(i, true) === 0x04034b50 && nameLen && i + 30 + nameLen <= b.length) {
+      const name = decoder.decode(b.subarray(i + 30, i + 30 + nameLen));
+      const size = known.get(i)?.size ?? view.getUint32(i + 18, true);
+      next = i + 30 + nameLen + view.getUint16(i + 28, true) + size;
+      if (!listed.has(name)) {
+        listed.add(name);
+        entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1, offset: i, method: view.getUint16(i + 8, true), size });
+      }
+    }
+    i = b.indexOf(0x50, next);
   }
   return entries;
+}
+
+/** An entry's bytes (stored or deflated), at most `budget` of them; null when it cannot be read (encrypted, other methods, bad header). */
+export async function zipEntryData(b: Uint8Array, e: ZipEntry, budget: number): Promise<Uint8Array | null> {
+  if (e.encrypted || e.offset + 30 > b.length) return null;
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (view.getUint32(e.offset, true) !== 0x04034b50) return null;
+  const start = e.offset + 30 + view.getUint16(e.offset + 26, true) + view.getUint16(e.offset + 28, true);
+  const raw = b.subarray(start, start + e.size);
+  return e.method === 0 ? raw.subarray(0, budget) : e.method === 8 ? inflate(raw, budget, 'deflate-raw') : null;
 }
 
 export function sniffKind(b: Uint8Array): FileKind | null {
@@ -139,6 +157,12 @@ export function extensionOf(name: string): string {
   return m ? m[1].toLowerCase() : '';
 }
 
+/** A file name whose extension runs code, opens in a browser or mounts a disk: flagged when found inside an archive. */
+export function isRiskyName(n: string): boolean {
+  const e = extensionOf(n);
+  return EXECUTABLE.has(e) || DISK_IMAGE.has(e) || HTML.has(e) || e === 'one';
+}
+
 export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: FileKind | null; zipEntries: string[]; issues: AttachmentIssue[] } {
   const issues: AttachmentIssue[] = [];
   const kind = sniffKind(bytes);
@@ -172,10 +196,7 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
     if (entries.some((e) => e.encrypted)) {
       issues.push({ id: 'encrypted-archive', detail: 'the archive is password-protected, which also hides its contents from mail scanners' });
     }
-    const risky = zipEntries.filter((n) => {
-      const e = extensionOf(n);
-      return EXECUTABLE.has(e) || DISK_IMAGE.has(e) || HTML.has(e) || e === 'one';
-    });
+    const risky = zipEntries.filter(isRiskyName);
     if (risky.length) issues.push({ id: 'archive-risky-content', detail: `archive contains ${risky.slice(0, 5).join(', ')}` });
   } else if (kind === 'ole' && oleHas(bytes, '_VBA_PROJECT')) {
     // Word ("Macros/VBA") and Excel ("_VBA_PROJECT_CUR/VBA") both hold a "_VBA_PROJECT" stream.
