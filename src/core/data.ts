@@ -75,6 +75,12 @@ export const URL_SHORTENERS = new Set([
   'short.io', 'tinyurl.is', 'u.to', 'clck.ru', 'surl.li',
 ]);
 
+// Mailing services' click-tracking hosts (registrable domains): newsletters route every link through them.
+export const CLICK_TRACKERS = new Set([
+  'list-manage.com', 'sendgrid.net', 'hubspotlinks.com', 'mandrillapp.com', 'rs6.net', 'createsend1.com',
+  'mjt.lu', 'awstrack.me', 'klclick.com', 'exacttarget.com',
+]);
+
 export const FREE_MAIL = new Set([
   'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'yahoo.com', 'ymail.com',
   'aol.com', 'icloud.com', 'me.com', 'mail.com', 'gmx.com', 'gmx.net', 'gmx.de', 'web.de', 'proton.me',

@@ -1,9 +1,10 @@
-import { URL_SHORTENERS } from './data';
-import { inspectDomain, normalizeDomain, sameOrg, type DomainIssue } from './domains';
+import { CLICK_TRACKERS, URL_SHORTENERS } from './data';
+import { inspectDomain, normalizeDomain, orgDomain, sameOrg, type DomainIssue } from './domains';
 import { decodeHtmlEntities } from './encoding';
 
 export type LinkIssueId =
   | 'text-mismatch'
+  | 'tracked-link'
   | 'shortener'
   | 'ip-host'
   | 'data-uri'
@@ -95,7 +96,8 @@ function hostInText(text: string): string | null {
   return m ? (tryUrl('http://' + m[1])?.hostname ?? normalizeDomain(m[1])) : null;
 }
 
-export function analyzeLink(href: string, text: string | null, source: LinkInfo['source']): LinkInfo {
+/** senderDomain: the From domain, so a newsletter's own site behind its mailing service's click tracking is not called a mismatch. */
+export function analyzeLink(href: string, text: string | null, source: LinkInfo['source'], senderDomain = ''): LinkInfo {
   const info: LinkInfo = { href, text, source, finalUrl: href, host: null, unwrappedVia: [], issues: [], domainIssues: [] };
   let url = tryUrl(href);
   for (let i = 0; url && i < 5; i++) {
@@ -143,7 +145,11 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
   }
   const shown = text ? hostInText(text) : null;
   if (shown && !sameOrg(shown, host) && !URL_SHORTENERS.has(shown)) {
-    info.issues.push({ id: 'text-mismatch', detail: `link text shows ${shown} but it actually goes to ${host}` });
+    info.issues.push(
+      senderDomain && sameOrg(shown, senderDomain) && CLICK_TRACKERS.has(orgDomain(host))
+        ? { id: 'tracked-link', detail: `link text shows ${shown}, the sender's own site, but the link goes through ${host}, a mailing service's click tracking` }
+        : { id: 'text-mismatch', detail: `link text shows ${shown} but it actually goes to ${host}` },
+    );
   }
   info.domainIssues = inspectDomain(host);
   return info;

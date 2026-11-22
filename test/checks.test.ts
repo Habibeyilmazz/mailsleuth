@@ -100,6 +100,16 @@ describe('links', () => {
     expect(linkIssues('https://evil.example/', 'update.zip')).toContain('text-mismatch');
     expect(linkIssues('https://evil.example/', 'https://paypal.pdf/')).toContain('text-mismatch'); // with a scheme it is a URL
   });
+  it("notes a newsletter's click tracking instead of calling its own site a mismatch", () => {
+    const tracked = (text: string, from: string) => analyzeLink('https://shop.us5.list-manage.com/track/click?u=1', text, 'html', from).issues.map((i) => i.id);
+    expect(tracked('www.shop.example', 'shop.example')).toEqual(['tracked-link']);
+    expect(tracked('www.shop.example', 'news.shop.example')).toEqual(['tracked-link']);
+    // Text naming someone else's site, or no known sender, stays a mismatch.
+    expect(tracked('www.paypal.com', 'shop.example')).toEqual(['text-mismatch']);
+    expect(tracked('www.shop.example', '')).toEqual(['text-mismatch']);
+    // Only known mailing-service trackers: any other host is still a mismatch.
+    expect(analyzeLink('https://evil.example/c', 'www.shop.example', 'html', 'shop.example').issues.map((i) => i.id)).toEqual(['text-mismatch']);
+  });
   it('flags IP literals, including disguised decimal form', () => {
     const l = analyzeLink('http://3325256727/x', null, 'html');
     expect(l.host).toBe('198.51.100.23');

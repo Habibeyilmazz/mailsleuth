@@ -93,6 +93,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'outlook-msg': ['delivery', 'info', 'Read from an Outlook .msg file', 'Outlook stores the original internet headers, the text and each attachment separately. mailsleuth rebuilt the message from them: the headers are the ones the mail server received, but the MIME layout, and the SHA-256 of an email attached inside it, belong to the rebuilt copy.'],
   'no-auth-results': ['authentication', 'info', 'No authentication results found', 'There is no Authentication-Results header, so SPF/DKIM/DMARC could not be reviewed. Paste the full headers (not just the body) to see them.'],
   'text-mismatch': ['links', 'high', 'Link text shows one site but goes to another', 'The visible text of a link can say anything. Here it names a different site than where the link really leads.'],
+  'tracked-link': ['links', 'info', 'Links go through a mailing service\'s click tracking', 'The link text shows the sender\'s own site, but the link goes to their mailing service first, which counts the click and then forwards you. Newsletters do this routinely. The final destination is not visible here, so if a page asks for a password, check its address.'],
   'userinfo': ['links', 'high', 'Link uses the "@" trick', 'In web addresses everything before "@" is a username that browsers ignore, so a trusted name there is pure decoration.'],
   'javascript-uri': ['links', 'high', 'Link runs script code', 'A javascript: link executes code instead of opening a page. Legitimate emails do not need this.'],
   'data-uri': ['links', 'high', 'Link opens a page embedded in the email', 'A data: link carries a whole web page inside the link itself, often a fake login form that no URL filter can see.'],
@@ -400,7 +401,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   for (const l of rawLinks) {
     const key = `${l.href}\0${l.text ?? ''}`;
     if (isIgnorableHref(l.href) || seen.has(key) || (l.source === 'text' && htmlHrefs.has(l.href))) continue;
-    seen.set(key, analyzeLink(l.href, l.text, l.source));
+    seen.set(key, analyzeLink(l.href, l.text, l.source, from?.domain));
   }
   const links = [...seen.values()];
   const bodyText = texts.join('\n\n').trim();
