@@ -167,7 +167,7 @@ export function extractHtmlLinks(html: string): { href: string; text: string }[]
   for (const m of html.matchAll(new RegExp(`<a\\b${attrs}([\\s\\S]*?)(?:<\\/a\\s*>|(?=<a[\\s>])|$)`, 'gi'))) {
     const h = attr(m[1], 'href');
     // Inline tags join text ("<span>pay</span><span>pal.com</span>" reads "paypal.com"); block tags separate it.
-    const text = m[2].replace(/<(br|p|div|tr|td|li|h\d)\b[^>]*(?:>|$)/gi, ' ').replace(/<[^>]+(?:>|$)/g, '');
+    const text = m[2].replace(/<(br|p|div|tr|td|li|h\d)\b[^>]*(?:>|$)/gi, ' ').replace(/<[a-z/!?][^>]*(?:>|$)/gi, '');
     if (h !== null) out.push({ href: cleanHref(h), text: decodeHtmlEntities(text).replace(/\s+/g, ' ').trim() });
   }
   for (const m of html.matchAll(new RegExp(`<(area|form)\\b${attrs}`, 'gi'))) {

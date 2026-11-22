@@ -20,6 +20,7 @@ describe('encoding', () => {
   });
   it('leaves unknown entities and Object.prototype names alone', () => {
     expect(htmlToText('a &constructor; b &colon;')).toBe('a &constructor; b :');
+    expect(htmlToText('<p>price < 5, verify your account</p>')).toBe('price < 5, verify your account');
   });
   it('turns HTML into visible text without script/style', () => {
     expect(htmlToText('<style>x{}</style><p>Hi&nbsp;there</p><script>evil()</script><p>&amp; bye</p>')).toBe('Hi there\n& bye');

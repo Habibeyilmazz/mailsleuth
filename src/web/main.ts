@@ -34,6 +34,8 @@ for (const path of Object.keys(SAMPLES).sort()) {
 
 const TOO_BIG = `That input is larger than ${MAX_INPUT_BYTES / 1024 / 1024} MB. Emails are almost never that big; check you picked the right file.`;
 
+let runs = 0;
+
 async function run(binary: string, label: string) {
   if (binary.length > MAX_INPUT_BYTES) {
     status.textContent = TOO_BIG;
@@ -44,8 +46,11 @@ async function run(binary: string, label: string) {
     return;
   }
   status.textContent = 'Analyzing…';
+  const ticket = ++runs;
   try {
-    stack = [{ label, analysis: await analyze(binary) }];
+    const analysis = await analyze(binary);
+    if (ticket !== runs) return; // the user already started another analysis
+    stack = [{ label, analysis }];
     status.textContent = '';
     render();
   } catch (e) {

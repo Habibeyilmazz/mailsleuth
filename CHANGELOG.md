@@ -13,6 +13,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - Thousands of unterminated tags made HTML scanning quadratic (30 s for 300 KB); now linear.
 - File extensions, entities and auth results named like `Object.prototype` keys (`x.constructor`) crashed or garbled output.
 - A second, riskier attached email did not raise the "attached email" severity, so attachment order changed the verdict.
+- A lone "<" in HTML text ("price < 5") no longer hides the rest of the message from the wording checks.
+- Web UI: a slow earlier analysis can no longer replace the result of a newer one.
 - Postfix-style `Received: by host (Postfix, from userid 0)` showed a hop "from userid".
 - README brand count (44, not 43); the CLI build no longer copies the web favicon.
 

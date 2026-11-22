@@ -96,7 +96,8 @@ export function htmlToText(html: string): string {
       .replace(/<(script|style|head)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, ' ')
       .replace(/<!--[\s\S]*?(?:-->|$)/g, ' ')
       .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)\b[^>]*(?:>|$)/gi, '\n')
-      .replace(/<[^>]+(?:>|$)/g, ' '),
+      // Like browsers, "<" starts a tag only before a letter, "/", "!" or "?"; "price < 5" stays text.
+      .replace(/<[a-z/!?][^>]*(?:>|$)/gi, ' '),
   )
     .replace(/[ \t ]+/g, ' ')
     .replace(/\s*\n\s*/g, '\n')
