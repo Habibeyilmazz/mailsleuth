@@ -126,6 +126,7 @@ describe('authentication results', () => {
     expect(ar.authservId).toBe('');
     expect(ar.results.map((r) => `${r.method}=${r.result}`)).toEqual(['spf=fail', 'dkim=none', 'dmarc=fail', 'compauth=fail']);
     expect(ar.results[3].props['reason']).toBe('000');
+    expect(ar.results[1].domain).toBeNull();
   });
   it('trusts only the topmost header, computes alignment and reads ARC', () => {
     const report = buildAuthReport({

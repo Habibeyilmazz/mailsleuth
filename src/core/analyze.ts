@@ -373,10 +373,10 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const level: Analysis['level'] = score >= 50 ? 'high' : score >= 20 ? 'suspicious' : 'low';
   const verdict =
     level === 'high'
-      ? 'High risk: several strong phishing indicators.'
+      ? 'Several strong signs of phishing or fraud.'
       : level === 'suspicious'
-        ? 'Suspicious: some warning signs worth checking.'
-        : 'Low risk: no strong warning signs found.';
+        ? 'Some warning signs worth checking before you act.'
+        : 'No strong warning signs found.';
 
   return {
     tool: { name: 'mailsleuth', version: VERSION },

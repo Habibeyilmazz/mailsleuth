@@ -98,10 +98,10 @@ export function inspectDomain(rawDomain: string): DomainIssue[] {
       seen.add(brand.name);
       const detail =
         kind === 'brand-in-domain'
-          ? `uses the name "${label}" but is not a ${brand.name} domain (${brand.domains[0]})`
+          ? `${domain} uses the name "${label}" but is not a ${brand.name} domain (${brand.domains[0]})`
           : kind === 'homoglyph'
-            ? `"${token}" is spelled with look-alike characters to imitate "${label}" (${brand.name})`
-            : `"${token}" looks very similar to "${label}" (${brand.name})`;
+            ? `${domain}: "${token}" is spelled with look-alike characters to imitate "${label}" (${brand.name})`
+            : `${domain}: "${token}" looks very similar to "${label}" (${brand.name})`;
       issues.push({ kind, domain, brand: brand.name, detail });
       break;
     }
@@ -109,7 +109,7 @@ export function inspectDomain(rawDomain: string): DomainIssue[] {
 
   const tld = domain.split('.').pop() ?? '';
   if (ABUSED_TLDS.has(tld)) {
-    issues.push({ kind: 'abused-tld', domain, detail: `ends in .${tld}, a top-level domain that shows up disproportionately in phishing and malware reports` });
+    issues.push({ kind: 'abused-tld', domain, detail: `${domain} ends in .${tld}, a top-level domain that shows up disproportionately in phishing and malware reports` });
   }
   return issues;
 }

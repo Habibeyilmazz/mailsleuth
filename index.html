@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>mailsleuth</title>
+    <meta name="description" content="Check a suspicious email in your browser. Explains SPF, DKIM, DMARC, look-alike domains, link tricks and risky attachments. Nothing is uploaded." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="mailsleuth home">
+        <img src="./favicon.svg" alt="" width="28" height="28" />
+        <span>mailsleuth</span>
+      </a>
+      <p class="offline">Runs entirely in this tab. The email is never uploaded.</p>
+    </header>
+
+    <main id="main">
+      <section id="intake" class="intake" aria-labelledby="intake-h">
+        <div class="intake-copy">
+          <h1 id="intake-h">Is this email what it says it is?</h1>
+          <p class="lede">
+            Give mailsleuth the full message and it explains every warning sign it finds: forged senders,
+            failed SPF, DKIM and DMARC checks, look-alike domains, disguised links and dangerous attachments.
+          </p>
+        </div>
+
+        <div class="intake-inputs">
+          <label id="dropzone" class="dropzone" for="file">
+            <span class="dz-title">Drop an .eml file here</span>
+            <span class="dz-sub">or click to choose one. In most mail apps: “Download message” or “Save as”.</span>
+            <input id="file" type="file" accept=".eml,.txt,message/rfc822,text/plain" />
+          </label>
+
+          <div class="paste">
+            <label for="paste">Or paste the message source</label>
+            <textarea id="paste" rows="6" spellcheck="false" placeholder="Received: from …&#10;Authentication-Results: …&#10;From: …&#10;Subject: …"></textarea>
+            <p class="hint">Gmail: ⋮ › Show original. Outlook: ⋯ › View › View message source. Headers alone also work.</p>
+            <button id="analyze-paste" type="button" class="primary">Analyze pasted message</button>
+          </div>
+
+          <div class="samples">
+            <label for="sample">No suspicious email handy? Try a synthetic sample</label>
+            <div class="row">
+              <select id="sample"></select>
+              <button id="load-sample" type="button" class="ghost">Analyze sample</button>
+            </div>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+        </div>
+
+        <ul class="checks">
+          <li><strong>Sender</strong> From, Reply-To and Return-Path compared; brand names in display names; look-alike and punycode domains.</li>
+          <li><strong>Authentication</strong> SPF, DKIM, DMARC and ARC results translated into plain English.</li>
+          <li><strong>Delivery path</strong> Every server hop on a timeline, with the delay between them.</li>
+          <li><strong>Links</strong> Safe Links and other wrappers decoded; text that lies about the destination; shorteners, IP addresses, data: links.</li>
+          <li><strong>Attachments</strong> SHA-256 hashes; macros, double extensions, HTML, ISO and LNK files found by their structure.</li>
+        </ul>
+      </section>
+
+      <div id="results" hidden></div>
+    </main>
+
+    <footer class="foot">
+      <p>
+        mailsleuth makes no network requests: this page is locked down so it cannot. Lookup buttons open
+        VirusTotal, URLhaus or MalwareBazaar in a new tab with only that link or hash.
+        <a href="https://github.com/Habibeyilmazz/mailsleuth">Source on GitHub</a> (MIT).
+      </p>
+    </footer>
+    <script type="module" src="/src/web/main.ts"></script>
+  </body>
+</html>

@@ -39,7 +39,7 @@ export interface AuthReport {
 function domainOf(v: string | undefined): string | null {
   if (!v) return null;
   const d = v.replace(/^"|"$/g, '').split('@').pop()!.toLowerCase().replace(/\.$/, '');
-  return d || null;
+  return d && d !== 'none' ? d : null; // Microsoft writes header.d=none for unsigned mail
 }
 
 function explain(method: string, result: string, domain: string | null, comments: string[]): Pick<AuthResult, 'explanation' | 'tone'> {
