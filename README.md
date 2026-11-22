@@ -2,7 +2,7 @@
 
 **A suspicious-email analyzer that explains every warning sign in plain English, and never lets the email leave your browser.**
 
-Drop in an `.eml` or Outlook `.msg` file (or paste the source) and get forged senders, failed SPF/DKIM/DMARC, look-alike domains, disguised links and risky attachments, each with the evidence it found and what to do next. The same core runs as a JSON CLI for scripting.
+Drop in an `.eml` or Outlook `.msg` file (or paste the source) and get forged senders, failed SPF/DKIM/DMARC, look-alike domains, disguised links (including the ones hidden inside an attached PDF or HTML file) and risky attachments, each with the evidence it found and what to do next. The same core runs as a JSON CLI for scripting.
 
 ![Recording of mailsleuth analyzing a synthetic parcel-delivery phishing sample: score 100, high risk, then scrolling through the reasons, sender and authentication sections](docs/demo.gif)
 
@@ -23,7 +23,7 @@ There is no hosted copy yet; `npm run build` gives a static `dist/` you can serv
 
 Pick one of the synthetic samples on the start page, drop your own `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page; that gives a `.msg` file. Headers alone also work; body text alone (no headers) gets only the link and wording checks. A PDF, image, archive or program dropped on its own is refused rather than rated: analyze the email it came in, which also gives its SHA-256 for a lookup. Files saved with a byte order mark, as UTF-16, or with CR-only line endings are read too.
 
-More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
+More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
 ### Command line
 
@@ -92,8 +92,9 @@ npm run preview      # serves dist/ on http://localhost:4191
 | Domains | Look-alikes of 44 bundled brands: homoglyphs from Cyrillic/Greek, digit swaps (paypa1), one-letter typos, brand names inside someone else's domain (paypal.com.evil.example); punycode (`xn--`) decoded and shown; domain endings often seen in abuse reports |
 | Authentication | SPF, DKIM, DMARC, ARC and Microsoft `compauth` from `Authentication-Results`, each explained in plain English; DMARC alignment; only the topmost header is trusted, and only when its server matches the newest `Received` hop (a header without a server name only behind a Microsoft 365 hop); earlier ones are shown as unverifiable |
 | Delivery path | Every `Received` hop on a timeline with the delay since the previous hop; timestamps that go backwards are flagged |
-| Links | Text that shows one site while linking to another (a file name such as `Report.pdf` is not a site, and the sender's own site behind a known mailing service's click tracking, such as Mailchimp or SendGrid, is a note rather than a warning); Microsoft Safe Links, Proofpoint URL Defense (v2/v3), Google and Facebook redirects unwrapped before checking; shorteners; bare and disguised IP addresses (`http://3325256727/`); `user@host` tricks; `data:`, `javascript:` and `vbscript:` links; `file:` links, `\\server\share` paths and Windows handlers such as `search-ms:` and `ms-msdt:` (they open a share or a program; a share can receive the Windows login hash); open redirects; direct links to risky file types |
-| Attachments | SHA-256 of each file; type detected from content, not the name; VBA macros found by structure (OOXML `vbaProject.bin`, OLE `_VBA_PROJECT`); double extensions; hidden right-to-left characters; executables and scripts, ISO/IMG/VHD, LNK, OneNote, HTML/SVG; ZIP contents listed, risky entries and password protection flagged; password-protected Office documents; content that does not match the extension |
+| Links | Text that shows one site while linking to another (a file name such as `Report.pdf` is not a site, and the sender's own site behind a known mailing service's click tracking, such as Mailchimp or SendGrid, is a note rather than a warning); Microsoft Safe Links, Proofpoint URL Defense (v2/v3), Google and Facebook redirects unwrapped before checking; shorteners; bare and disguised IP addresses (`http://3325256727/`); `user@host` tricks; `data:`, `javascript:` and `vbscript:` links; `file:` links, `\\server\share` paths and Windows handlers such as `search-ms:` and `ms-msdt:` (they open a share or a program; a share can receive the Windows login hash); open redirects; direct links to risky file types. Links inside PDF and HTML attachments get the same checks and are marked with the file they came from (see below) |
+| Attachments | SHA-256 of each file; type detected from content, not the name; VBA macros found by structure (OOXML `vbaProject.bin`, OLE `_VBA_PROJECT`); double extensions; hidden right-to-left characters; executables and scripts, ISO/IMG/VHD, LNK, OneNote, HTML/SVG; ZIP contents listed, risky entries and password protection flagged; password-protected Office documents; content that does not match the extension; in PDFs: JavaScript, Launch actions (start a program), embedded files, and encryption that hides the PDF's links |
+| Links inside attachments | The "your document is attached" lure keeps the email itself clean and puts the real link in the attachment. mailsleuth reads link actions (`/URI`) from PDFs, both in plain objects and in the compressed object streams most current PDF writers use, and from HTML/SVG attachments it takes `<a>` links, form targets, and every bare URL in the file (script redirects, `<meta>` refreshes). Each appears under Links with "Inside the attachment …", and a note lists how many links each attachment has |
 | Language | English phrases for credential phishing, money requests (gift cards, bank-detail changes), urgency/secrecy and threats; every match is quoted |
 | Forwarded reports | An email attached as `message/rfc822`, as any file named `.eml`, or as an Outlook `.msg` file (how users report phishing) gets its own full analysis; in the UI, "Analyze attached email" opens it |
 | Outlook `.msg` | Read without Outlook: the internet headers Outlook kept, every stored body (plain text, HTML, and compressed RTF, including HTML encapsulated in it as in most `.msg` files; all are checked because Outlook may show any of them), attachments and attached messages. The message is rebuilt as MIME and goes through every check above. Without stored internet headers (drafts, sent items, some internal mail), the sender, recipients and subject Outlook stored are used and the report says that authentication could not be checked. A damaged file (broken sector chain, failed RTF checksum) is refused rather than half-read |
@@ -120,6 +121,7 @@ src/core/      shared by web and CLI, no dependencies
   msg.ts         Outlook .msg: Compound File reader, MAPI properties, compressed RTF, HTML-in-RTF -> MIME
   urls.ts        link extraction, wrapper unwrapping, link tricks
   attachments.ts magic-byte sniffing, ZIP central directory, macro detection
+  pdf.ts         PDF link actions, JavaScript/Launch/embedded-file markers, Flate object streams
   language.ts    phrase patterns
   analyze.ts     runs everything, scores, writes next steps
   report.ts      defanged Markdown report (page button and CLI --markdown)
@@ -128,7 +130,7 @@ src/cli.ts     Node CLI
 samples/       synthetic emails, generated by scripts/make-samples.ts
 ```
 
-Raw input is kept as a byte-per-character string so MIME offsets stay exact; text is decoded per part with `TextDecoder`. SHA-256 uses Web Crypto, available in both browsers and Node. The only dependencies are dev tools (Vite, Vitest, TypeScript, Playwright).
+Raw input is kept as a byte-per-character string so MIME offsets stay exact; text is decoded per part with `TextDecoder`. SHA-256 uses Web Crypto and PDF object streams are inflated with `DecompressionStream`, both available in browsers and Node. The only dependencies are dev tools (Vite, Vitest, TypeScript, Playwright).
 
 ## When to use something else
 
@@ -146,7 +148,7 @@ What mailsleuth adds: the whole message (headers, body, links and attachment str
 
 ## Samples
 
-`samples/` holds seven synthetic emails written for this project: a PayPal look-alike with a Safe Links-wrapped punycode link, an invoice with a macro document and an HTML attachment, a clean newsletter, a CEO gift-card request, a parcel notice full of link tricks, a user report that forwards the first one as an attachment, and a fake signature request saved as an Outlook `.msg` file (body stored as compressed RTF, like most real ones). The `.msg` sample is written by `scripts/msg.ts`; Python's `extract-msg` reads it with the same subject, headers, HTML and attachment hash. All domains are reserved (`.example`, `example.net`), all IPs are from documentation ranges, and the attachments contain only placeholder text. One sample links to a `bit.ly` path made up for this project to demonstrate shortener detection; the app never makes it clickable. Regenerate them with `node scripts/make-samples.ts` (Node 22.18+).
+`samples/` holds eight synthetic emails written for this project: a PayPal look-alike with a Safe Links-wrapped punycode link, an invoice with a macro document and an HTML attachment, a clean newsletter, a CEO gift-card request, a parcel notice full of link tricks, a user report that forwards the first one as an attachment, a fake signature request saved as an Outlook `.msg` file (body stored as compressed RTF, like most real ones), and a calm "here is the rate sheet" email that passes SPF, DKIM and DMARC and whose only link, to a Microsoft look-alike, is inside the attached PDF (in a compressed object stream, written by `scripts/pdf.ts`). The `.msg` sample is written by `scripts/msg.ts`; Python's `extract-msg` reads it with the same subject, headers, HTML and attachment hash. All domains are reserved (`.example`, `example.net`), all IPs are from documentation ranges, and the attachments contain only placeholder text. One sample links to a `bit.ly` path made up for this project to demonstrate shortener detection; the app never makes it clickable. Regenerate them with `node scripts/make-samples.ts` (Node 22.18+).
 
 ## Development
 
@@ -168,7 +170,8 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 - HTML is scanned with regular expressions, not a DOM parser; badly malformed markup can hide a link.
 - Ten mailing services' click trackers are known (Mailchimp, SendGrid, HubSpot, Amazon SES and others in `src/core/data.ts`). A newsletter sent through another service, with its own site as the link text, is still reported as "Link text shows one site but goes to another".
 - Language checks are English only.
-- Attachments are inspected, not decompressed: macros inside nested archives, PDF JavaScript and remote-template tricks in Office files are not detected.
+- Attachments are inspected, not decompressed: macros inside nested archives and remote-template tricks in Office files are not detected. ZIP archives and Office documents are not searched for links.
+- PDFs are scanned for link actions, not parsed in full: an encrypted PDF (including the common kind that opens without a password) is reported as encrypted but its links cannot be read; a link stored as an indirect reference, in a PDF form's submit action, or written only as page text or in a QR code image is missed. JavaScript in an HTML attachment is not run, so a link it builds at run time (from `atob(...)` or string pieces) is missed.
 - `.msg` files: OLE-object and by-reference (cloud link) attachments are named in the report but not extracted, and the SHA-256 of an email attached inside a `.msg` is of the rebuilt MIME copy, not of any original file. Ordinary attachments hash exactly as in the `.eml`.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
 - A `Received` date without a time zone, or with a zone name RFC 5322 does not define (such as `CET` without a numeric offset), shows as "no readable date" rather than a guess.
@@ -178,7 +181,8 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 
 ## Roadmap
 
-- Office remote-template and PDF JavaScript/launch-action detection (needs inflate via `DecompressionStream`)
+- Office remote-template detection and links inside Office documents (inflate a ZIP entry with `DecompressionStream`, as the PDF object streams already are)
+- Reading links in encrypted PDFs that open without a password (needs MD5/RC4 for older PDFs and AES for newer ones)
 - Full Public Suffix List and a larger confusables table
 - More languages for the phrase checks
 
