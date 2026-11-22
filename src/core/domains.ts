@@ -93,7 +93,9 @@ export function inspectDomain(rawDomain: string): DomainIssue[] {
       let kind: DomainIssueKind | null = null;
       if (token === label) kind = 'brand-in-domain';
       else if (skeleton(token) === skeleton(label)) kind = /[^\x00-\x7f]/.test(token) ? 'homoglyph' : 'lookalike';
-      else if (label.length >= 6 && /^[a-z0-9]+$/.test(token) && levenshtein(token, label) === 1) kind = 'lookalike';
+      // Same first letter and no short tokens: without this, everyday words like "cloud"
+      // (icloud), "finance" (binance) and "strip" (stripe) were flagged as look-alikes.
+      else if (label.length >= 6 && token.length >= 6 && token[0] === label[0] && /^[a-z0-9]+$/.test(token) && levenshtein(token, label) === 1) kind = 'lookalike';
       if (!kind) continue;
       seen.add(brand.name);
       const detail =

@@ -36,6 +36,10 @@ describe('domains', () => {
     expect(inspectDomain('accounts.google.com')).toEqual([]);
     expect(inspectDomain('northwind-garden.example')).toEqual([]);
     expect(inspectDomain('live-scores.example')).toEqual([]); // generic brand label "live" is ignored
+    // Everyday words one edit away from a brand are not look-alikes.
+    for (const d of ['cloud.example', 'pcloud.com', 'acme-finance.com', 'strip.example', 'witter.example', 'status.cloud.vendor.example']) {
+      expect(inspectDomain(d)).toEqual([]);
+    }
   });
   it('flags homoglyph, typo and brand-in-domain lookalikes', () => {
     expect(kinds('xn--pypal-4ve.com')).toEqual(['idn', 'homoglyph']);
