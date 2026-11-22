@@ -101,10 +101,9 @@ export function sniffKind(b: Uint8Array): FileKind | null {
   return null;
 }
 
-/** VBA storage names as UTF-16LE inside an OLE container. shortcut: byte search, not a full CFB directory walk. */
-function oleHasMacros(b: Uint8Array): boolean {
-  // Word ("Macros/VBA") and Excel ("_VBA_PROJECT_CUR/VBA") both hold a "_VBA_PROJECT" stream.
-  return bytesToBinary(b).includes('_VBA_PROJECT'.split('').join('\0') + '\0');
+/** A stream or storage name as UTF-16LE inside an OLE container. shortcut: byte search, not a full CFB directory walk. */
+function oleHas(b: Uint8Array, name: string): boolean {
+  return bytesToBinary(b).includes(name.split('').join('\0') + '\0');
 }
 
 export function extensionOf(name: string): string {
@@ -150,13 +149,19 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
       return EXECUTABLE.has(e) || DISK_IMAGE.has(e) || HTML.has(e) || e === 'one';
     });
     if (risky.length) issues.push({ id: 'archive-risky-content', detail: `archive contains ${risky.slice(0, 5).join(', ')}` });
-  } else if (kind === 'ole' && oleHasMacros(bytes)) {
+  } else if (kind === 'ole' && oleHas(bytes, '_VBA_PROJECT')) {
+    // Word ("Macros/VBA") and Excel ("_VBA_PROJECT_CUR/VBA") both hold a "_VBA_PROJECT" stream.
     issues.push({ id: 'office-macro', detail: 'the legacy Office file contains a VBA macro storage. Macros can run code when you click "Enable content"' });
+  }
+  // Office saves a password-protected .docx/.xlsx/.pptx as an OLE file with an "EncryptedPackage" stream.
+  const encryptedOoxml = kind === 'ole' && expected?.[0] === 'ooxml' && oleHas(bytes, 'EncryptedPackage');
+  if (encryptedOoxml) {
+    issues.push({ id: 'encrypted-archive', detail: 'the Office document is password-protected, which also hides its contents and any macros from mail scanners' });
   }
   if (MACRO_EXT.has(ext) && !issues.some((i) => i.id === 'office-macro')) {
     issues.push({ id: 'macro-enabled-type', detail: `.${ext} is a macro-enabled Office format` });
   }
-  if (kind && expected && !expected.includes(kind)) {
+  if (kind && expected && !expected.includes(kind) && !encryptedOoxml) {
     issues.push({ id: 'type-mismatch', detail: `named .${ext} but its content is a ${KIND_LABEL[kind]}` });
   }
   return { kind, zipEntries, issues };

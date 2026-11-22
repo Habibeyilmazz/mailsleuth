@@ -174,6 +174,13 @@ describe('attachments', () => {
     expect(attIssues('docs.zip', makeZip([{ name: 'scan.pdf.lnk', data: 'x' }]))).toEqual(['archive-risky-content']);
     expect(attIssues('docs.zip', makeZip([{ name: 'a.txt', data: 'x', encrypted: true }]))).toEqual(['encrypted-archive']);
   });
+  it('calls a password-protected .docx/.xlsx encrypted, not a type mismatch', () => {
+    // Office stores an encrypted OOXML file in an OLE container with an "EncryptedPackage" stream.
+    const ole = (stream: string) => new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, ...new TextEncoder().encode(stream.split('').join('\0') + '\0')]);
+    expect(attIssues('q3.xlsx', ole('EncryptedPackage'))).toEqual(['encrypted-archive']);
+    expect(attIssues('q3.docm', ole('EncryptedPackage'))).toEqual(['encrypted-archive', 'macro-enabled-type']);
+    expect(attIssues('q3.xlsx', ole('Workbook'))).toEqual(['type-mismatch']); // a renamed .xls is still a mismatch
+  });
   it('flags double extensions, executables, HTML, RLO names and type mismatches', () => {
     expect(attIssues('invoice.pdf.exe', 'MZ')).toEqual(['double-extension', 'executable']);
     expect(attIssues('statement.pdf   .html', '<html></html>')).toEqual(['double-extension', 'html-attachment']);

@@ -109,7 +109,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'html-attachment': ['attachments', 'medium', 'HTML attachment', 'HTML files open in your browser and can show a convincing login page that sends your password elsewhere.'],
   'onenote': ['attachments', 'medium', 'OneNote attachment', 'OneNote files have been used to hide malicious programs behind fake buttons.'],
   'type-mismatch': ['attachments', 'medium', 'Attachment content does not match its name', 'The file\'s actual content (by its internal structure) is a different type than its extension claims.'],
-  'encrypted-archive': ['attachments', 'medium', 'Password-protected archive', 'Encryption stops mail scanners from looking inside, which is why attackers send the password in the email body.'],
+  'encrypted-archive': ['attachments', 'medium', 'Password-protected archive or document', 'Encryption stops mail scanners from looking inside, which is why attackers send the password in the email body.'],
   'macro-enabled-type': ['attachments', 'medium', 'Macro-enabled Office file type', 'This file format exists specifically to carry macros.'],
   'attached-email': ['attachments', 'medium', 'Contains a forwarded email that looks risky', 'This message carries another email as an attachment, as when someone reports phishing by forwarding it. That inner email has its own analysis below.'],
   'language-credentials': ['language', 'medium', 'Asks you to sign in or confirm account details', 'Requests to "verify your account" or warnings of suspension are the core of credential phishing.'],
