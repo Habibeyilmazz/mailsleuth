@@ -5,7 +5,13 @@ import { bytesToBinary, escapeJsonControls, textToBinary } from '../core/encodin
 import { toUnicodeDomain } from '../core/punycode';
 import { defang, formatBytes, formatDelay, formatUtc, h, type Child } from './dom';
 
-const SAMPLES = import.meta.glob('../../samples/*.eml', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const EML_SAMPLES = import.meta.glob('../../samples/*.eml', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+// .msg is binary: inlined as a data: URL (base64), which decodes straight to a byte-per-character string.
+const MSG_SAMPLES = import.meta.glob('../../samples/*.msg', { query: '?inline', import: 'default', eager: true }) as Record<string, string>;
+const SAMPLES: Record<string, () => string> = {
+  ...Object.fromEntries(Object.entries(EML_SAMPLES).map(([p, text]) => [p, () => textToBinary(text)])),
+  ...Object.fromEntries(Object.entries(MSG_SAMPLES).map(([p, url]) => [p, () => atob(url.slice(url.indexOf(',') + 1))])),
+};
 const SAMPLE_LABELS: Record<string, string> = {
   '01-paypal-lookalike.eml': 'PayPal look-alike (credential phishing)',
   '02-invoice-macro.eml': 'Invoice with macro document',
@@ -13,6 +19,7 @@ const SAMPLE_LABELS: Record<string, string> = {
   '04-ceo-gift-cards.eml': 'CEO gift-card request (BEC)',
   '05-parcel-redelivery.eml': 'Parcel redelivery link tricks',
   '06-user-report-forwarded.eml': 'User report with phishing attached',
+  '07-outlook-sign-request.msg': 'Outlook .msg file: fake signature request',
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -54,7 +61,7 @@ async function run(input: string | File, label: string) {
     const binary = typeof input === 'string' ? input : bytesToBinary(new Uint8Array(await input.arrayBuffer()));
     if (ticket !== runs) return;
     if (!binary.trim()) {
-      say('Nothing to analyze yet: drop an .eml file, paste the message source, or pick a sample.', true);
+      say('Nothing to analyze yet: drop an .eml or .msg file, paste the message source, or pick a sample.', true);
       if (typeof input === 'string') paste.focus();
       return;
     }
@@ -94,7 +101,7 @@ paste.addEventListener('keydown', (e) => {
 });
 $('#load-sample').addEventListener('click', () => {
   const path = sampleSelect.value;
-  run(textToBinary(SAMPLES[path]), path.split('/').pop()!);
+  run(SAMPLES[path](), path.split('/').pop()!);
 });
 
 // ---------- rendering ----------

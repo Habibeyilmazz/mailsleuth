@@ -22,6 +22,7 @@ const csp: Plugin = {
 export default defineConfig({
   base: './',
   plugins: [csp],
+  assetsInclude: ['**/*.msg'], // lets the .msg sample be imported with ?inline
   server: { port: 4190, strictPort: true },
   preview: { port: 4191, strictPort: true },
   test: { include: ['test/**/*.test.ts'] },

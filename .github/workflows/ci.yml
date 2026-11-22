@@ -36,6 +36,11 @@ jobs:
             node dist-cli/mailsleuth.js --compact "$f" | node -e 'const a=JSON.parse(require("fs").readFileSync(0,"utf8")); console.log(process.argv[1], a.score, a.level)' "$f"
           done
           node dist-cli/mailsleuth.js - < samples/03-newsletter-legit.eml | node -e 'const a=JSON.parse(require("fs").readFileSync(0,"utf8")); if (a.level !== "low") process.exit(1)'
+          node dist-cli/mailsleuth.js --compact samples/07-outlook-sign-request.msg | node -e 'const a=JSON.parse(require("fs").readFileSync(0,"utf8")); if (!a.findings.some((f) => f.id === "outlook-msg") || a.level !== "high") process.exit(1)'
+      - name: CLI reports a damaged .msg instead of crashing
+        run: |
+          set +e; head -c 3000 samples/07-outlook-sign-request.msg | node dist-cli/mailsleuth.js - 2> err.txt; code=$?; set -e
+          test "$code" -eq 2 && grep -q 'damaged' err.txt
       - name: CLI refuses oversized input without reading it all
         run: |
           set +e; head -c 60000000 /dev/zero | node dist-cli/mailsleuth.js -; code=$?; set -e

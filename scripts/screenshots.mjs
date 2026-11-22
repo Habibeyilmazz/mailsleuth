@@ -1,7 +1,7 @@
 // Drives the built app in Chromium: runs every sample, fails on console errors or on any
 // request that leaves localhost, and saves screenshots.
 // Usage: npm run build && npm run screenshots -- [outDir]   (needs Playwright's Chromium)
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 
@@ -42,7 +42,7 @@ try {
     await runSample(page, file);
     const level = await page.textContent('#verdict-h');
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
-    await page.screenshot({ path: `${outDir}/${file.replace('.eml', '')}.png`, fullPage: true });
+    await page.screenshot({ path: `${outDir}/${file.replace(/\.(eml|msg)$/, '')}.png`, fullPage: true });
     if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
     // The sticky verdict column can be taller than the window: its last step must be reachable by keyboard.
     await page.evaluate(() => window.scrollTo(0, 1200));
@@ -92,6 +92,20 @@ try {
   await page.setInputFiles('#file', 'samples/02-invoice-macro.eml');
   await page.waitForSelector('#verdict-h');
   console.log(`file input: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
+
+  // Outlook .msg through the file picker; a damaged one gets a readable error, not a blank result.
+  await page.click('text=Analyze another email');
+  await page.setInputFiles('#file', 'samples/07-outlook-sign-request.msg');
+  await page.waitForSelector('#verdict-h');
+  if (!(await page.isVisible('text=Read from an Outlook .msg file'))) problems.push('.msg file input: missing "Read from an Outlook .msg file" note');
+  console.log(`.msg file input: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
+  await page.click('text=Analyze another email');
+  const msgBytes = readFileSync('samples/07-outlook-sign-request.msg');
+  await page.setInputFiles('#file', { name: 'broken.msg', mimeType: 'application/vnd.ms-outlook', buffer: msgBytes.subarray(0, 1000) });
+  await page.waitForSelector('#status.is-error');
+  const brokenMsg = await page.textContent('#status');
+  if (!brokenMsg.includes('damaged')) problems.push(`damaged .msg: unexpected message "${brokenMsg}"`);
+  console.log(`damaged .msg: ${brokenMsg}`);
 
   // A slow file read must not replace a newer analysis; a failed read must say so.
   const race = await newPage({ viewport: { width: 1280, height: 860 } });

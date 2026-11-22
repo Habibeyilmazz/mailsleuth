@@ -5,7 +5,7 @@ import { bytesToBinary, escapeJsonControls } from './core/encoding';
 const HELP = `mailsleuth ${VERSION} - explainable suspicious-email analysis, fully offline
 
 Usage:
-  mailsleuth [--compact] <message.eml>
+  mailsleuth [--compact] <message.eml | message.msg>
   cat message.eml | mailsleuth [--compact] -
 
 Prints the analysis as JSON (score, level, findings with explanations, auth results,
@@ -56,7 +56,13 @@ async function main(argv: string[]): Promise<number> {
     console.error(`mailsleuth: input is larger than ${MAX_INPUT_BYTES / 1024 / 1024} MB`);
     return 2;
   }
-  const result = await analyze(bytesToBinary(bytes));
+  let result;
+  try {
+    result = await analyze(bytesToBinary(bytes));
+  } catch (e) {
+    console.error(`mailsleuth: cannot analyze ${files[0] && files[0] !== '-' ? files[0] : 'input'}: ${(e as Error).message}`);
+    return 2;
+  }
   process.stdout.write(escapeJsonControls(JSON.stringify(result, null, compact ? 0 : 2)) + '\n');
   return 0;
 }
