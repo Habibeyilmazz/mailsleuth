@@ -57,6 +57,10 @@ jobs:
         run: |
           set +e; head -c 60000000 /dev/zero | node dist-cli/mailsleuth.js -; code=$?; set -e
           test "$code" -eq 2
+      - name: CLI stops quietly when the reader closes the pipe, and reads a file name after --
+        run: |
+          node dist-cli/mailsleuth.js samples/01-paypal-lookalike.eml 2> err.txt | true; test ! -s err.txt
+          node dist-cli/mailsleuth.js --compact -- samples/01-paypal-lookalike.eml | grep -q '"score"'
       - name: CLI escapes bidi controls from the email
         run: |
           printf 'From: a@b.example\nSubject: pay\342\200\256lapyap\n\nhi\n' | node dist-cli/mailsleuth.js --compact - | grep -q 'pay.u202elapyap'

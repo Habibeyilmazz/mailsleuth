@@ -31,18 +31,21 @@ async function readLimited(stream: NodeJS.ReadableStream): Promise<Uint8Array | 
 }
 
 async function main(argv: string[]): Promise<number> {
-  if (argv.includes('--help') || argv.includes('-h')) {
+  // "--" ends the options, so a file named "-x.eml" can still be given.
+  const end = argv.indexOf('--');
+  const options = end < 0 ? argv : argv.slice(0, end);
+  if (options.includes('--help') || options.includes('-h')) {
     console.log(HELP);
     return 0;
   }
-  if (argv.includes('--version')) {
+  if (options.includes('--version')) {
     console.log(VERSION);
     return 0;
   }
-  const compact = argv.includes('--compact');
-  const markdown = argv.includes('--markdown');
-  const files = argv.filter((a) => a === '-' || !a.startsWith('-'));
-  const unknown = argv.filter((a) => a.startsWith('-') && a !== '-' && a !== '--compact' && a !== '--markdown');
+  const compact = options.includes('--compact');
+  const markdown = options.includes('--markdown');
+  const files = [...options.filter((a) => a === '-' || !a.startsWith('-')), ...(end < 0 ? [] : argv.slice(end + 1))];
+  const unknown = options.filter((a) => a.startsWith('-') && a !== '-' && a !== '--compact' && a !== '--markdown');
   if (unknown.length || (compact && markdown) || files.length > 1 || (!files.length && process.stdin.isTTY)) {
     if (unknown.length) console.error(`Unknown option: ${unknown[0]}\n`);
     else if (compact && markdown) console.error('--compact and --markdown cannot be combined\n');
@@ -76,6 +79,11 @@ async function main(argv: string[]): Promise<number> {
   process.stdout.write(markdown ? toMarkdown(result) : escapeJsonControls(JSON.stringify(result, null, compact ? 0 : 2)) + '\n');
   return 0;
 }
+
+// "mailsleuth x.eml | head" closes the pipe early: stop quietly instead of printing a stack trace.
+process.stdout.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code !== 'EPIPE') throw e;
+});
 
 main(process.argv.slice(2)).then((code) => {
   process.exitCode = code;
