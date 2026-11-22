@@ -43,7 +43,12 @@ try {
     const level = await page.textContent('#verdict-h');
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
     await page.screenshot({ path: `${outDir}/${file.replace(/\.(eml|msg)$/, '')}.png`, fullPage: true });
-    if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
+    if (file.startsWith('01-')) {
+      // a window as tall as the page, so the sticky verdict column (capped at the window height) is not cut off
+      await page.setViewportSize({ width: 1280, height: await page.evaluate(() => document.documentElement.scrollHeight) });
+      await page.screenshot({ path: `${outDir}/result.png` });
+      await page.setViewportSize({ width: 1280, height: 860 });
+    }
     if (file.endsWith('.msg')) await page.screenshot({ path: `${outDir}/msg-result.png` });
     // The sticky verdict column can be taller than the window: its last step must be reachable by keyboard.
     await page.evaluate(() => window.scrollTo(0, 1200));
