@@ -108,4 +108,8 @@ describe('end-to-end on the bundled samples', () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
   });
+  it('still analyzes an email whose sender domain has a 200,000-character xn-- label', async () => {
+    const a = await analyze(`From: x@xn--${'a'.repeat(200000)}-ba.example\nSubject: verify your account\n\nhi`);
+    expect(a.findings.some((f) => f.id === 'language-credentials')).toBe(true);
+  });
 });

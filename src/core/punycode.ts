@@ -22,6 +22,9 @@ function digit(c: number): number {
 }
 
 export function decodePunycodeLabel(input: string): string | null {
+  // A DNS label is at most 63 octets ("xn--" + 59). Longer input is not a real domain, and decoding
+  // 200,000 characters overflowed the String.fromCodePoint(...out) call stack and aborted the analysis.
+  if (input.length > 59) return null;
   const out: number[] = [];
   const basic = input.lastIndexOf('-');
   for (let j = 0; j < Math.max(basic, 0); j++) {

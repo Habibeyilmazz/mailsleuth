@@ -21,6 +21,11 @@ describe('punycode', () => {
   it('returns the label unchanged when it is not valid punycode', () => {
     expect(toUnicodeDomain('xn--!!.example')).toBe('xn--!!.example');
   });
+  it('leaves labels longer than DNS allows undecoded instead of crashing', () => {
+    const huge = 'xn--' + 'a'.repeat(200000) + '-ba';
+    expect(toUnicodeDomain(`${huge}.example`)).toBe(`${huge}.example`);
+    expect(decodePunycodeLabel('a'.repeat(54) + '-ba')).not.toBeNull(); // 63 octets with "xn--": still decoded
+  });
 });
 
 describe('domains', () => {
