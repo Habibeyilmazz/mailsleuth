@@ -57,6 +57,10 @@ describe('domains', () => {
 });
 
 describe('links', () => {
+  it('reads hosts the way the browser does when &shy; hides inside them', () => {
+    const [l] = extractHtmlLinks('<a href="https://pay&shy;pa1.example/login">Sign in</a>');
+    expect(analyzeLink(l.href, l.text, 'html').host).toBe('paypa1.example');
+  });
   it('unwraps Safe Links, Google, Proofpoint v2/v3 and Facebook wrappers', () => {
     const safe = analyzeLink('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fevil.example%2Fx&data=1', null, 'html');
     expect([safe.finalUrl, safe.unwrappedVia]).toEqual(['https://evil.example/x', ['Microsoft Safe Links']]);

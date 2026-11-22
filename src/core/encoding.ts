@@ -69,10 +69,11 @@ export function decodeHeaderValue(raw: string): string {
     });
 }
 
-// Includes the HTML5 names attackers use to hide a scheme from naive scanners ("https&colon;//").
+// Includes the HTML5 names attackers use to hide a scheme from naive scanners ("https&colon;//"),
+// and &shy;, which browsers drop from host names: "pay&shy;pa1.example" opens paypa1.example.
 const ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', colon: ':', sol: '/', period: '.', commat: '@',
-  quest: '?', equals: '=', num: '#', percnt: '%', lowbar: '_', hyphen: '-', tab: '\t', newline: '\n',
+  quest: '?', equals: '=', num: '#', percnt: '%', lowbar: '_', hyphen: '-', tab: '\t', newline: '\n', shy: '\u00ad',
 };
 
 export function decodeHtmlEntities(s: string): string {
