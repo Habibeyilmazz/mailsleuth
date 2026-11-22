@@ -90,18 +90,40 @@ interface Scan {
   fileNames: string[];
 }
 
-/** Walks names and strings in PDF object syntax (stream data already removed). */
-function scanObjects(text: string, out: Scan) {
-  const token = /\/([^\s/<>[\]()%{}]*)|\(|<([0-9A-Fa-f\s]*)>/g;
+/**
+ * One pass over PDF syntax: names, strings, comments, and stream data skipped as a whole, so a "(" in a comment
+ * or binary data cannot swallow later objects and a "stream" inside a string is not taken for one.
+ * Object streams (Flate, no predictor) are collected for inflating when `objectStreams` is given.
+ */
+function scanObjects(text: string, out: Scan, objectStreams?: Uint8Array[]) {
+  const token = /\/([^\s/<>[\]()%{}]*)|\(|<([0-9A-Fa-f\s]*)>|%[^\r\n]*|\bobj\b|\bstream(?:\r\n|\r|\n)?/g;
   let prev = '';
+  let dict = new Set<string>(); // names since the last "obj": the dictionary of the next stream
   for (let m = token.exec(text); m; m = token.exec(text)) {
+    const t = m[0];
     if (m[1] !== undefined) {
       prev = decodeName(m[1]);
       out.names.add(prev);
+      dict.add(prev);
+      continue;
+    }
+    if (t[0] === '%') continue;
+    if (t === 'obj') {
+      dict = new Set();
+      continue;
+    }
+    if (t.startsWith('stream')) {
+      const e = text.indexOf('endstream', token.lastIndex);
+      const end = e < 0 ? text.length : e;
+      if (objectStreams && dict.has('ObjStm') && (dict.has('FlateDecode') || dict.has('Fl')) && !dict.has('DecodeParms')) {
+        objectStreams.push(binaryToBytes(text.slice(token.lastIndex, end)));
+      }
+      token.lastIndex = e < 0 ? text.length : e + 9;
+      dict = new Set();
       continue;
     }
     let bin: string;
-    if (m[0] === '(') {
+    if (t === '(') {
       const lit = readLiteral(text, m.index);
       bin = lit.value;
       token.lastIndex = lit.end;
@@ -117,38 +139,9 @@ function scanObjects(text: string, out: Scan) {
 }
 
 export async function inspectPdf(bytes: Uint8Array): Promise<PdfInspection> {
-  const bin = bytesToBinary(bytes);
   const scan: Scan = { uris: [], names: new Set(), fileNames: [] };
-  // Split objects from stream data with indexOf (linear even when "endstream" is missing).
-  let objects = '';
   const objectStreams: Uint8Array[] = [];
-  let at = 0;
-  for (;;) {
-    const s = bin.indexOf('stream', at);
-    if (s < 0) {
-      objects += bin.slice(at);
-      break;
-    }
-    // A stream keyword follows its dictionary's ">>"; anything else ("endstream", "(mainstream)") is not one.
-    const window = bin.slice(Math.max(at, s - 4096), s);
-    if (!window.trimEnd().endsWith('>>')) {
-      objects += bin.slice(at, s + 6);
-      at = s + 6;
-      continue;
-    }
-    const dict = decodeName(window.slice(window.lastIndexOf('obj') + 1));
-    objects += bin.slice(at, s);
-    let dataStart = s + 6;
-    if (bin[dataStart] === '\r') dataStart++;
-    if (bin[dataStart] === '\n') dataStart++;
-    const e = bin.indexOf('endstream', dataStart);
-    const dataEnd = e < 0 ? bin.length : e;
-    if (/\/Type\s*\/ObjStm\b/.test(dict) && /\/(FlateDecode|Fl)\b/.test(dict) && !/\/DecodeParms/.test(dict)) {
-      objectStreams.push(binaryToBytes(bin.slice(dataStart, dataEnd)));
-    }
-    at = e < 0 ? bin.length : e;
-  }
-  scanObjects(objects, scan);
+  scanObjects(bytesToBinary(bytes), scan, objectStreams);
   let budget = MAX_INFLATED;
   for (const data of objectStreams) {
     if (budget <= 0) break;

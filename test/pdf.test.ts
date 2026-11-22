@@ -66,6 +66,16 @@ describe('PDF attachments', () => {
     expect((await inspectPdf(cut)).uris).toEqual(['https://first.example']);
   });
 
+  it('cannot be blinded by a "(" in a comment or in stream data, or a fake stream inside a string', async () => {
+    const pdf = makePdf([
+      catalog,
+      '<< /Length 3 >>\nstream\n(((\nendstream',
+      '% a comment with ( in it\n<< /Title (>> stream) /A << /S /URI /URI (https://one.example) >> >>',
+      '<< /Note (endstream) /URI (https://two.example) >>',
+    ]);
+    expect((await inspectPdf(pdf)).uris).toEqual(['https://one.example', 'https://two.example']);
+  });
+
   it('stops inflating at the size budget (a small PDF can expand to gigabytes)', async () => {
     const bomb = deflateSync(Buffer.alloc(64 * 1024 * 1024));
     const pdf = new Uint8Array([...enc('%PDF-1.7\n1 0 obj\n<< /Type /ObjStm /Filter /FlateDecode >>\nstream\n'), ...bomb, ...enc('\nendstream\nendobj\n')]);
