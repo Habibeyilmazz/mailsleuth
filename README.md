@@ -20,7 +20,7 @@ npm ci
 npm run dev          # web app on http://localhost:4190
 ```
 
-Pick one of the synthetic samples on the start page, drop your own `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page; that gives a `.msg` file. Headers alone also work; body text alone (no headers) gets only the link and wording checks.
+Pick one of the synthetic samples on the start page, drop your own `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page; that gives a `.msg` file. Headers alone also work; body text alone (no headers) gets only the link and wording checks. A PDF, image, archive or program dropped on its own is refused rather than rated: analyze the email it came in, which also gives its SHA-256 for a lookup. Files saved with a byte order mark, as UTF-16, or with CR-only line endings are read too.
 
 More screenshots: [start page](docs/screenshots/home.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
