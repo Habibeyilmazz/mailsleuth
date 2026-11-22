@@ -64,9 +64,15 @@ export function code(s: string): string {
   return `${fence}${pad}${t}${pad}${fence}`;
 }
 
-/** Our own sentences, which can quote a domain from the email: Markdown syntax characters are escaped. */
-function prose(s: string): string {
-  return oneLine(s).replace(/[\\`*_[\]<>|~]/g, '\\$&');
+/**
+ * Our own sentences: Markdown syntax is escaped. Those that quote a domain or result from the email
+ * (hosts = true) also get host names defanged, so no renderer autolinks them (GFM links www. and x@y.z).
+ */
+function prose(s: string, hosts = false): string {
+  const t = oneLine(s).replace(/[\\`*_[\]<>|~&]/g, '\\$&');
+  if (!hosts) return t;
+  // The inserted "[.]" is always followed by a label character, so it can never become "](" link syntax.
+  return t.replace(/(?<![\w.-])[\w-]+(?:\.[\w-]+)+/g, (d) => d.replace(/\./g, '[.]')).replace(/\bhttp(s?):\/\//gi, 'hxxp$1://');
 }
 
 function addr(a: Address | null): string {
@@ -107,7 +113,7 @@ function sections(a: Analysis, level: number): string[] {
     out.push(...capped(f.evidence, (e) => `  - ${code(e)}`));
   }
   if (a.reassurances.length) {
-    out.push('', `${h} Points in its favour`, '', ...a.reassurances.map((r) => `- ${prose(r)}`));
+    out.push('', `${h} Points in its favour`, '', ...a.reassurances.map((r) => `- ${prose(r, true)}`));
   }
 
   out.push('', `${h} Authentication`, '');
@@ -119,7 +125,7 @@ function sections(a: Analysis, level: number): string[] {
       ? `Checked by ${code(primary.authservId || 'the receiving server')} when the message arrived.`
       : '**Unverified:** these results could not be tied to any receiving server in the delivery path, so anyone could have written them.');
     out.push('');
-    for (const r of primary.results) out.push(`- **${prose(r.method.toUpperCase())} ${prose(r.result)}**${r.domain ? ` ${code(r.domain)}` : ''}: ${prose(r.explanation)}`);
+    for (const r of primary.results) out.push(`- **${prose(r.method.toUpperCase(), true)} ${prose(r.result, true)}**${r.domain ? ` ${code(r.domain)}` : ''}: ${prose(r.explanation, true)}`);
     if (alignment.fromDomain) {
       out.push(`- Alignment with the From domain ${code(alignment.fromDomain)}: SPF ${alignment.spfAligned ? 'aligned' : 'not aligned'}, DKIM ${alignment.dkimAligned ? 'aligned' : 'not aligned'}.`);
     }

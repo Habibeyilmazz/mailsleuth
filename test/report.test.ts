@@ -88,6 +88,18 @@ describe('Markdown report', () => {
     expect(md).toContain('The visible From domain (evil\\_\\*x\\*\\<b\\>.example) failed DMARC');
   });
 
+  it('defangs domains our sentences quote from the email, so nothing autolinks them', async () => {
+    const md = toMarkdown(await analyze(textToBinary([
+      'Authentication-Results: mx.b.example; dmarc=fail header.from=www.evil.example; spf=pass smtp.mailfrom=ops@evil.example',
+      'Received: from evil.example by mx.b.example; Tue, 10 Nov 2026 09:00:00 +0000',
+      'From: a@www.evil.example',
+      '',
+      'hi',
+    ].join('\n'))));
+    expect(md).toContain('The visible From domain (www[.]evil[.]example) failed DMARC');
+    expect(outsideCode(md)).not.toMatch(/www\.|@\w+\.\w/);
+  });
+
   it('caps long lists and says where the rest is', async () => {
     const links = Array.from({ length: 250 }, (_, i) => `https://h${i}.example/`).join('\n');
     const md = toMarkdown(await analyze(textToBinary(`From: a@b.example\nSubject: many\n\n${links}\n`)));
