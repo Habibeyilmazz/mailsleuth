@@ -37,6 +37,7 @@ jobs:
           set +e; head -c 60000000 /dev/zero | node dist-cli/mailsleuth.js -; code=$?; set -e
           test "$code" -eq 2
       - name: CLI escapes bidi controls from the email
-        run: printf 'From: a@b.example\nSubject: pay\342\200\256lapyap\n\nhi\n' | node dist-cli/mailsleuth.js --compact - | grep -q 'pay.u202elapyap'
+        run: |
+          printf 'From: a@b.example\nSubject: pay\342\200\256lapyap\n\nhi\n' | node dist-cli/mailsleuth.js --compact - | grep -q 'pay.u202elapyap'
       - name: Built page forbids network access
         run: grep -q "connect-src 'none'" dist/index.html
