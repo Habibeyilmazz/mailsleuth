@@ -28,7 +28,7 @@ Then, on the start page:
 
 There is no hosted copy yet; `npm run build` gives a static `dist/` you can serve yourself (see [Static build](#static-build)).
 
-More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
+More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [a Word file that loads a remote template](docs/screenshots/office-template-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
 ### Command line
 

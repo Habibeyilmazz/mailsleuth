@@ -120,7 +120,7 @@ describe('end-to-end on the bundled samples', () => {
       ['http://203.0.113.9/t.dotm', 'office', 'Contract.docx'],
     ]);
     expect(ids(a)).toEqual(expect.arrayContaining(['office-remote-content', 'lookalike-domain', 'local-link', 'ip-host', 'attachment-links']));
-    expect(a.findings.find((f) => f.id === 'office-remote-content')!.evidence).toEqual(['Contract.docx: the document loads a template from http://203.0.113.9/t.dotm when opened']);
+    expect(a.findings.find((f) => f.id === 'office-remote-content')!.evidence).toEqual(['Contract.docx: the document loads a template from 203.0.113.9 when opened (see Links)']);
     // An ordinary document with only internal parts and a template on the author's disk: nothing to report.
     const plain = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/_rels/settings.xml.rels', data: `<Relationships>${rel('attachedTemplate', 'file:///C:\\T\\Normal.dotm')}</Relationships>` }]);
     const b = await analyze(eml.replace(Buffer.from(docx).toString('base64'), Buffer.from(plain).toString('base64')));
