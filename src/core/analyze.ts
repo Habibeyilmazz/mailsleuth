@@ -330,6 +330,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   // Source pasted into Notepad and saved as "Unicode" is UTF-16; read byte by byte it has no headers at all.
   const utf16 = binary.startsWith('\xFF\xFE') ? 'utf-16le' : binary.startsWith('\xFE\xFF') ? 'utf-16be' : null;
   if (utf16) binary = textToBinary(new TextDecoder(utf16).decode(binaryToBytes(binary)));
+  if (/^[\s\0]*$/.test(binary)) throw new Error('it contains no text, so there is nothing to analyze. Check the file was saved or downloaded completely.');
   const msg = isCompoundFile(binary) ? fromMsg(binary) : null;
   // A dropped attachment (invoice.pdf) would otherwise be called "low risk". HTML and RTF can be email text;
   // "MZ" is only taken as a program when binary bytes follow, so a pasted "MZ Bank: …" is still read.

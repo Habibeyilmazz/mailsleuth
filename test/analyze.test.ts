@@ -162,10 +162,15 @@ describe('end-to-end on the bundled samples', () => {
     expect(other.attachments[0].email).toBeNull();
   });
 
-  it('handles empty and garbage input without throwing', async () => {
-    expect((await analyze('')).score).toBe(0);
+  it('handles garbage input without throwing', async () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
+  });
+  it('refuses a file that holds only a byte order mark, blanks or zero bytes instead of calling it low risk', async () => {
+    // An empty document saved by Notepad (UTF-8 or "Unicode") or a download that failed as zeros scored 0, "Low risk".
+    for (const empty of ['', '\xEF\xBB\xBF', '\xEF\xBB\xBF\r\n \n', '\xFF\xFE', '\xFF\xFE \0\n\0', '\xFE\xFF', '\0\0\0\0']) {
+      await expect(analyze(empty), JSON.stringify(empty)).rejects.toThrow('contains no text');
+    }
   });
   it('refuses a PDF, image, archive or program instead of calling it low risk', async () => {
     // Users drop the suspicious attachment itself; "No strong warning signs found" for an invoice.pdf is false comfort.
