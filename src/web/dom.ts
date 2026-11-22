@@ -24,32 +24,3 @@ function append(el: Node, children: Child[]) {
     else el.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(revealBidi(String(c))) : c);
   }
 }
-
-/** hxxps://evil[.]example/path - readable, not clickable, safe to paste into tickets. */
-export function defang(url: string): string {
-  return url
-    .replace(/^http(s?):\/\//i, (_, s: string) => `hxxp${s}://`)
-    .replace(/^(hxxps?:\/\/[^/?#]*)/i, (host) => host.replace(/\./g, '[.]'));
-}
-
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-export function formatDelay(seconds: number): string {
-  const sign = seconds < 0 ? '−' : '+';
-  let s = Math.abs(seconds);
-  if (s < 60) return `${sign}${s} s`;
-  const d = Math.floor(s / 86400);
-  s -= d * 86400;
-  const hrs = Math.floor(s / 3600);
-  s -= hrs * 3600;
-  const m = Math.floor(s / 60);
-  return sign + [d && `${d} d`, hrs && `${hrs} h`, m && `${m} min`].filter(Boolean).join(' ');
-}
-
-export function formatUtc(iso: string): string {
-  return iso.replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
-}

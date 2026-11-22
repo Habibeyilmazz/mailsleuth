@@ -3,7 +3,8 @@ import type { Address } from '../core/address';
 import { analyze, MAX_INPUT_BYTES, type Analysis, type Finding } from '../core/analyze';
 import { bytesToBinary, escapeJsonControls, textToBinary } from '../core/encoding';
 import { toUnicodeDomain } from '../core/punycode';
-import { defang, formatBytes, formatDelay, formatUtc, h, type Child } from './dom';
+import { defang, formatBytes, formatDelay, formatUtc, toMarkdown } from '../core/report';
+import { h, type Child } from './dom';
 
 const EML_SAMPLES = import.meta.glob('../../samples/*.eml', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 // .msg is binary: inlined as a data: URL (base64), which decodes straight to a byte-per-character string.
@@ -332,6 +333,7 @@ function render() {
   const toolbar = h('div', { class: 'toolbar' },
     crumbs,
     h('span', { class: 'spacer' }),
+    copyButton(toMarkdown(a), 'Copy Markdown report'),
     copyButton(escapeJsonControls(JSON.stringify(a, null, 2)), 'Copy JSON report'),
     h('button', { type: 'button', class: 'ghost small', onclick: reset }, 'Analyze another email'),
   );

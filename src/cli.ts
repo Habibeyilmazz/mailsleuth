@@ -1,18 +1,20 @@
 import { createReadStream } from 'node:fs';
 import { analyze, MAX_INPUT_BYTES, VERSION } from './core/analyze';
 import { bytesToBinary, escapeJsonControls } from './core/encoding';
+import { toMarkdown } from './core/report';
 
 const HELP = `mailsleuth ${VERSION} - explainable suspicious-email analysis, fully offline
 
 Usage:
-  mailsleuth [--compact] <message.eml | message.msg>
-  cat message.eml | mailsleuth [--compact] -
+  mailsleuth [--compact | --markdown] <message.eml | message.msg>
+  cat message.eml | mailsleuth [--compact | --markdown] -
 
 Prints the analysis as JSON (score, level, findings with explanations, auth results,
 delivery hops, links, attachments with SHA-256). Nothing is sent over the network.
 
 Options:
   --compact   one-line JSON
+  --markdown  a defanged Markdown report for a ticket or chat instead of JSON
   --help      show this help
   --version   show the version`;
 
@@ -38,10 +40,12 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
   const compact = argv.includes('--compact');
+  const markdown = argv.includes('--markdown');
   const files = argv.filter((a) => a === '-' || !a.startsWith('-'));
-  const unknown = argv.filter((a) => a.startsWith('-') && a !== '-' && a !== '--compact');
-  if (unknown.length || files.length > 1 || (!files.length && process.stdin.isTTY)) {
+  const unknown = argv.filter((a) => a.startsWith('-') && a !== '-' && a !== '--compact' && a !== '--markdown');
+  if (unknown.length || (compact && markdown) || files.length > 1 || (!files.length && process.stdin.isTTY)) {
     if (unknown.length) console.error(`Unknown option: ${unknown[0]}\n`);
+    else if (compact && markdown) console.error('--compact and --markdown cannot be combined\n');
     console.error(HELP);
     return 2;
   }
@@ -69,7 +73,7 @@ async function main(argv: string[]): Promise<number> {
     console.error(`mailsleuth: cannot analyze ${files[0] && files[0] !== '-' ? files[0] : 'input'}: ${(e as Error).message}`);
     return 2;
   }
-  process.stdout.write(escapeJsonControls(JSON.stringify(result, null, compact ? 0 : 2)) + '\n');
+  process.stdout.write(markdown ? toMarkdown(result) : escapeJsonControls(JSON.stringify(result, null, compact ? 0 : 2)) + '\n');
   return 0;
 }
 

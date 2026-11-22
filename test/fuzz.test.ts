@@ -2,6 +2,7 @@
 // regex or loop go quadratic. Opt-in because it takes about a minute: `npm run fuzz` (FUZZ_CASES=n, FUZZ_SEED=n).
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
+import { toMarkdown } from '../src/core/report';
 
 const VOCAB = ['(', ')', '<', '>', '"', "'", '=', ';', ':', ',', '.', '@', '/', '\\', ' ', '\t', '\n', '\r', '\r\n', '-', '_', '*', '?', '&', '#', '%', 'a', 'x', '1', '[', ']', 'X', '!',
   '<a ', 'href=', '</a>', '<!--', '-->', '<script', '<base ', '=?', '?=', 'B?', 'Q?', 'http://', 'https://', '//', 'www.', 'xn--', 'from ', ' by ', ' with ', 'spf=', 'dkim=', 'pass', '.pdf', '.exe',
@@ -27,7 +28,7 @@ describe.runIf(process.env.FUZZ)('timing fuzz', () => {
     const check = async (header: string, where: number, motif: string, prefix: string) => {
       const blob = prefix + motif.repeat(Math.ceil(SIZE / motif.length)).slice(0, SIZE) + pick(VOCAB) + pick(VOCAB);
       const t = performance.now();
-      await analyze(place(where, header, blob));
+      toMarkdown(await analyze(place(where, header, blob)));
       const ms = performance.now() - t;
       if (ms > LIMIT_MS) slow.push(`${ms.toFixed(0)} ms: ${header} (${where}) ${JSON.stringify(blob.slice(0, 60))}`);
     };
