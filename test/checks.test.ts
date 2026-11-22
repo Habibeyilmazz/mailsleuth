@@ -116,6 +116,10 @@ describe('links', () => {
     expect(l.issues[0].detail).toContain('disguised');
     expect(linkIssues('http://[2001:db8::1]/')).toEqual(['ip-host']);
   });
+  it('quotes a whole IPv6 literal, and calls it disguised only when browsers rewrite it', () => {
+    expect(analyzeLink('http://[2001:db8::1]:8080/x', null, 'html').issues[0].detail).toBe('link goes to a bare IP address ([2001:db8::1]) instead of a named website');
+    expect(analyzeLink('http://user@[2001:DB8:0:0::1]/', null, 'html').issues[0].detail).toBe('link uses a disguised numeric address "[2001:DB8:0:0::1]" that browsers read as [2001:db8::1]');
+  });
   it('flags userinfo, shorteners, data/javascript URIs, redirects and risky downloads', () => {
     expect(linkIssues('https://paypal.com@evil.example/')).toEqual(['userinfo']);
     expect(linkIssues('https://bit.ly/abc')).toEqual(['shortener']);

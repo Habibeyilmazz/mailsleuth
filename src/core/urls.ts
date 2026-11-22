@@ -140,7 +140,7 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
   info.host = host;
 
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.startsWith('[')) {
-    const authority = /^[a-z]+:\/\/(?:[^@/]*@)?([^/:?#]+)/i.exec(href)?.[1] ?? '';
+    const authority = /^[a-z]+:\/\/(?:[^@/]*@)?(\[[^\]/]*\]|[^/:?#]+)/i.exec(href)?.[1] ?? '';
     const obfuscated = info.unwrappedVia.length === 0 && authority.toLowerCase() !== host;
     info.issues.push({
       id: 'ip-host',
