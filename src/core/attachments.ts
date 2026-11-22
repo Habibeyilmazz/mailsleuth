@@ -1,3 +1,4 @@
+import { readable } from './domains';
 import { bytesToBinary, revealBidi } from './encoding';
 
 export type AttachmentIssueId =
@@ -119,7 +120,7 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
     issues.push({ id: 'rlo-filename', detail: `file name contains invisible text-direction characters, so the extension you see is not the real one (real name: "${revealBidi(name)}")` });
   }
   const ext = extensionOf(name);
-  const decoy = DECOY_EXT.exec(name);
+  const decoy = DECOY_EXT.exec(readable(name)); // as displayed: "invoice.pdf<U+200B>.exe" reads .pdf.exe
   const dangerous = EXECUTABLE.has(ext) || HTML.has(ext) || DISK_IMAGE.has(ext);
   if (decoy && dangerous) {
     issues.push({ id: 'double-extension', detail: `"${name}" pretends to be a .${decoy[1].toLowerCase()} file but is really .${ext}` });
