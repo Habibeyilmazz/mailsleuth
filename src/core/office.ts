@@ -33,7 +33,8 @@ export async function inspectOffice(b: Uint8Array): Promise<{ uris: string[]; is
       uris.push(target);
       const type = attr('Type').split('/').pop() ?? '';
       // A web address Office fetches on open (template injection, CVE-2022-30190 "Follina"); a share is checked as a link.
-      if (type !== 'hyperlink' && /^[a-z][a-z0-9+.-]+:/i.test(target) && !/^file:/i.test(target)) remote.push(`${type || 'relationship'}: ${target}`);
+      const what = type === 'attachedTemplate' ? 'a template' : type === 'oleObject' ? 'an embedded object' : 'content';
+      if (type !== 'hyperlink' && /^[a-z][a-z0-9+.-]+:/i.test(target) && !/^file:/i.test(target)) remote.push(`${what} from ${target}`);
     }
   }
   const issues: AttachmentIssue[] = remote.length

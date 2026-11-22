@@ -22,6 +22,7 @@ const SAMPLE_LABELS: Record<string, string> = {
   '06-user-report-forwarded.eml': 'User report with phishing attached',
   '07-outlook-sign-request.msg': 'Outlook .msg file: fake signature request',
   '08-pdf-link-lure.eml': 'Calm email, the link is in the PDF',
+  '09-contract-remote-template.eml': 'Contract that loads a remote template',
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;

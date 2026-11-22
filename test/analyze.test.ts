@@ -66,6 +66,14 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.reassurances.join(' ')).not.toContain('no links');
   });
 
+  it('sees the remote template and the mailto trick in the calm contract email', async () => {
+    const a = await sample('09-contract-remote-template.eml');
+    expect(ids(a)).toEqual(['attachment-links', 'ip-host', 'mailto-mismatch', 'office-remote-content']);
+    expect(a.score).toBe(49);
+    expect(a.links).toMatchObject([{ source: 'office', attachment: 'Supply_Contract_2027.docx', host: '198.51.100.23' }]);
+    expect(a.nextSteps.join(' ')).toContain('Do not open the attachment');
+  });
+
   it('lists the form target of an HTML attachment as a link of that attachment', async () => {
     const a = await sample('02-invoice-macro.eml');
     expect(a.links.filter((l) => l.attachment)).toMatchObject([{ finalUrl: 'https://collect.invalid/submit', text: '(form submit)', attachment: 'Remittance_Advice.pdf.html' }]);
@@ -112,7 +120,7 @@ describe('end-to-end on the bundled samples', () => {
       ['http://203.0.113.9/t.dotm', 'office', 'Contract.docx'],
     ]);
     expect(ids(a)).toEqual(expect.arrayContaining(['office-remote-content', 'lookalike-domain', 'local-link', 'ip-host', 'attachment-links']));
-    expect(a.findings.find((f) => f.id === 'office-remote-content')!.evidence).toEqual(['Contract.docx: the document loads attachedTemplate: http://203.0.113.9/t.dotm when opened']);
+    expect(a.findings.find((f) => f.id === 'office-remote-content')!.evidence).toEqual(['Contract.docx: the document loads a template from http://203.0.113.9/t.dotm when opened']);
     // An ordinary document with only internal parts and a template on the author's disk: nothing to report.
     const plain = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/_rels/settings.xml.rels', data: `<Relationships>${rel('attachedTemplate', 'file:///C:\\T\\Normal.dotm')}</Relationships>` }]);
     const b = await analyze(eml.replace(Buffer.from(docx).toString('base64'), Buffer.from(plain).toString('base64')));
@@ -121,7 +129,7 @@ describe('end-to-end on the bundled samples', () => {
   });
 
   it('never produces findings without an explanation', async () => {
-    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml']) {
+    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml', '09-contract-remote-template.eml']) {
       for (const f of (await sample(name)).findings) {
         expect(f.title.length).toBeGreaterThan(5);
         expect(f.explanation.length).toBeGreaterThan(20);
