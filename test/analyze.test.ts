@@ -133,6 +133,17 @@ describe('end-to-end on the bundled samples', () => {
     await analyze(`From: a@b.example\r\r\n${'\r'.repeat(300000)}x${'\r\r\n'.repeat(100000)}`);
     expect(performance.now() - t).toBeLessThan(500);
   });
+  it('reads headers saved as UTF-16 (Notepad "Unicode")', async () => {
+    // Was read byte by byte: no headers, score 0, "No strong warning signs found".
+    const text = readFileSync(new URL('../samples/01-paypal-lookalike.eml', import.meta.url), 'utf8').replace(/\n/g, '\r\n');
+    const want = await sample('01-paypal-lookalike.eml');
+    for (const [bom, enc] of [[[0xff, 0xfe], 'utf16le'], [[0xfe, 0xff], 'utf16be']] as const) {
+      const body = Buffer.from(text, 'utf16le');
+      if (enc === 'utf16be') body.swap16();
+      const a = await analyze(bytesToBinary(new Uint8Array([...bom, ...body])));
+      expect([a.score, ids(a)]).toEqual([want.score, ids(want)]);
+    }
+  });
   it('reads a file saved with a UTF-8 byte order mark', async () => {
     // Windows editors add one; it made the first header "﻿From" and hid the sender.
     const a = await analyze('\xEF\xBB\xBFFrom: "PayPal" <service@paypa1.example>\nSubject: hi\n\nhello');

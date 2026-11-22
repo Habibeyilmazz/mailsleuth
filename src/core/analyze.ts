@@ -3,7 +3,7 @@ import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from '
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, sameOrg, type DomainIssue } from './domains';
-import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex } from './encoding';
+import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex, textToBinary } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
 import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
 import { isCompoundFile, readMsg, type MsgResult } from './msg';
@@ -315,6 +315,9 @@ function fromMsg(binary: string): MsgResult {
 
 export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   binary = binary.replace(/^\xEF\xBB\xBF/, ''); // a UTF-8 byte order mark would become part of the first header's name
+  // Source pasted into Notepad and saved as "Unicode" is UTF-16; read byte by byte it has no headers at all.
+  const utf16 = binary.startsWith('\xFF\xFE') ? 'utf-16le' : binary.startsWith('\xFE\xFF') ? 'utf-16be' : null;
+  if (utf16) binary = textToBinary(new TextDecoder(utf16).decode(binaryToBytes(binary)));
   const msg = isCompoundFile(binary) ? fromMsg(binary) : null;
   // A dropped attachment (invoice.pdf) would otherwise be called "low risk". HTML and RTF can be email text;
   // "MZ" is only taken as a program when binary bytes follow, so a pasted "MZ Bank: …" is still read.
