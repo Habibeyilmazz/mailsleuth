@@ -79,9 +79,10 @@ The JSON contains the score, level, every finding (title, explanation, evidence)
 
 ```sh
 npm run build        # web app in dist/, CLI in dist-cli/
+npm run preview      # serves dist/ on http://localhost:4191
 ```
 
-`dist/` is a plain static site with relative paths; open it from any web server. A manual GitHub Pages workflow is included (`.github/workflows/pages.yml`, run it from the Actions tab once Pages is set to "GitHub Actions").
+`dist/` is a plain static site with relative paths; open it from any web server (opening `index.html` straight from disk does not work, because browsers block module scripts on `file://`). A manual GitHub Pages workflow is included (`.github/workflows/pages.yml`, run it from the Actions tab once Pages is set to "GitHub Actions").
 
 ## What it checks
 
