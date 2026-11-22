@@ -44,13 +44,15 @@ try {
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
     await page.screenshot({ path: `${outDir}/${file.replace('.eml', '')}.png`, fullPage: true });
     if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
-    // The sticky verdict column is taller than the window: its last step must still be reachable.
-    const hidden = await page.evaluate(() => {
-      const col = document.querySelector('.col-verdict');
-      col.scrollTop = col.scrollHeight;
-      window.scrollTo(0, 1200);
-      return document.querySelector('.steps li:last-child').getBoundingClientRect().bottom - window.innerHeight;
-    });
+    // The sticky verdict column can be taller than the window: its last step must be reachable by keyboard.
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await page.keyboard.press('Shift+Tab'); // from the focused verdict heading to its scrollable column
+    if (!(await page.evaluate(() => document.activeElement?.classList.contains('col-verdict')))) problems.push(`${file}: verdict column not keyboard-focusable`);
+    const tall = await page.evaluate(() => { const c = document.querySelector('.col-verdict'); return c.scrollHeight > c.clientHeight; });
+    await page.keyboard.press('End');
+    await page.waitForTimeout(400); // keyboard scrolling is smooth
+    if (tall && (await page.evaluate(() => window.scrollY)) !== 1200) problems.push(`${file}: End scrolled the page, not the verdict column`);
+    const hidden = await page.evaluate(() => document.querySelector('.steps li:last-child').getBoundingClientRect().bottom - window.innerHeight);
     if (hidden > 0) problems.push(`${file}: last next step hidden ${Math.round(hidden)}px below the window`);
     await page.click('text=Analyze another email');
   }

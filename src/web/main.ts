@@ -325,7 +325,7 @@ function render() {
   results.replaceChildren(
     toolbar,
     h('div', { class: 'layout' },
-      h('div', { class: 'col-verdict' }, renderVerdict(a)),
+      h('div', { class: 'col-verdict', tabindex: '0', 'aria-label': 'Verdict and next steps' }, renderVerdict(a)),
       h('div', { class: 'col-detail' }, renderFindings(a), renderSender(a), renderAuth(a), renderHops(a), renderLinks(a), renderAttachments(a), renderRaw(a)),
     ),
   );
