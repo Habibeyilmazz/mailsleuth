@@ -118,6 +118,18 @@ describe('end-to-end on the bundled samples', () => {
     expect((await analyze('MZ Bank: verify your account today')).findings.map((f) => f.id)).toContain('language-credentials');
     expect((await analyze('<html><body><a href="https://evil.example/">Sign in</a></body></html>')).links).toHaveLength(1);
   });
+  it('reads files with bare CR or doubled CR line endings like the original', async () => {
+    // CR-only scored 0 and \r\r\n (CRLF re-saved in text mode on Windows) lost the links and an attachment.
+    const raw = bytesToBinary(new Uint8Array(readFileSync(new URL('../samples/02-invoice-macro.eml', import.meta.url))));
+    const want = await analyze(raw);
+    for (const eol of ['\r', '\r\r\n']) {
+      const a = await analyze(raw.replace(/\r?\n/g, eol));
+      expect([a.score, ids(a), a.attachments.map((x) => x.sha256)]).toEqual([want.score, ids(want), want.attachments.map((x) => x.sha256)]);
+    }
+    const t = performance.now();
+    await analyze(`From: a@b.example\n\n${'\r'.repeat(300000)}x${'\r\r\n'.repeat(100000)}`);
+    expect(performance.now() - t).toBeLessThan(500);
+  });
   it('reads a file saved with a UTF-8 byte order mark', async () => {
     // Windows editors add one; it made the first header "﻿From" and hid the sender.
     const a = await analyze('\xEF\xBB\xBFFrom: "PayPal" <service@paypa1.example>\nSubject: hi\n\nhello');

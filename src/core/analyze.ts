@@ -322,6 +322,10 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   if (kind && kind !== 'html' && kind !== 'rtf' && (kind !== 'exe' || binary.slice(0, 1024).includes('\0'))) {
     throw new Error(`this looks like a ${KIND_LABEL[kind]}, not an email. To check an attachment, analyze the email it came in (.eml or .msg): that also gives its SHA-256 for a VirusTotal lookup.`);
   }
+  // A lone CR is not allowed in a mail file, so one means CR-only (old Mac) or "\r\r\n" (CRLF re-saved in
+  // text mode) line endings. Normalized only then, so the bytes of well-formed messages stay untouched.
+  // (?<!\r) keeps a long run of CRs linear: a match can only start at the run's first CR.
+  if (!msg && /\r(?!\n)/.test(binary)) binary = binary.replace(/(?<!\r)\r+\n/g, '\n').replace(/\r/g, '\n');
   const root = parseMessage(msg ? msg.mime : binary);
   const h = root.headers;
   const from = parseAddressList(getHeader(h, 'from'))[0] ?? null;
