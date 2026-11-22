@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="4" y="12" width="44" height="32" rx="5" fill="#0b6467"/>
-  <path d="M7 16l19 15 19-15" fill="none" stroke="#e9f4f4" stroke-width="3.5" stroke-linejoin="round"/>
-  <circle cx="42" cy="38" r="12" fill="#eef1f4" stroke="#18212c" stroke-width="4.5"/>
-  <path d="M50.5 46.5L59 55" stroke="#18212c" stroke-width="6" stroke-linecap="round"/>
+  <style>
+    .env { fill: #0b6467 } .flap { stroke: #e9f4f4 } .lens { fill: #eef1f4 } .rim { stroke: #18212c }
+    @media (prefers-color-scheme: dark) {
+      .env { fill: #4fb7b3 } .flap { stroke: #11161d } .lens { fill: #11161d } .rim { stroke: #e4e9ef }
+    }
+  </style>
+  <rect class="env" x="4" y="12" width="44" height="32" rx="5"/>
+  <path class="flap" d="M7 16l19 15 19-15" fill="none" stroke-width="3.5" stroke-linejoin="round"/>
+  <circle class="lens rim" cx="42" cy="38" r="12" stroke-width="4.5"/>
+  <path class="rim" d="M50.5 46.5L59 55" stroke-width="6" stroke-linecap="round"/>
 </svg>
