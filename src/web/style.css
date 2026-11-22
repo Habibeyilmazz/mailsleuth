@@ -71,6 +71,7 @@ a { color: var(--action); }
 /* ---------- intake ---------- */
 .intake {
   display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); grid-template-areas: 'copy inputs' 'checks inputs';
+  grid-template-rows: auto 1fr; /* a status line growing the inputs column must not push the copy down */
   gap: 0 3rem; padding: 3rem 0 4rem; align-items: start;
 }
 .intake-copy { grid-area: copy; }
@@ -119,7 +120,7 @@ button { font: inherit; cursor: pointer; border-radius: 10px; padding: .6rem 1.1
 .primary:hover { filter: brightness(1.08); }
 .ghost { background: transparent; color: var(--ink); border-color: var(--field-line); }
 .ghost:hover { border-color: var(--action); color: var(--action); }
-.small { font-size: .85rem; padding: .35rem .7rem; }
+button.small { padding: .35rem .7rem; }
 .link-button { background: none; border: 0; padding: 0; color: var(--action); text-decoration: underline; }
 
 .intake.compact { display: none; }
@@ -209,16 +210,20 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 .tone-bad .result { color: var(--high); }
 .auth li > p:last-child { font-size: .93rem; }
 
-/* the delivery path: a rail with the delay printed on the gap between servers */
+/* the delivery path: a rail with the delay printed on the gap between servers, a dot on each server line */
 .timeline { position: relative; display: grid; gap: 0; }
 .hop { position: relative; padding: .2rem 0 1.1rem 1.6rem; border-left: 2px solid var(--line); margin-left: .45rem; }
+.hop:first-child:not(:last-child) { border-image: linear-gradient(transparent .5rem, var(--line) 0) 1; }
 .hop:last-child { border-left-color: transparent; padding-bottom: 0; }
-.hop::before { content: ''; position: absolute; left: -.5rem; top: .45rem; width: .8rem; height: .8rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--action); }
-.hop:last-child::before { background: var(--action); }
-.hop.warn::before { border-color: var(--high); }
-.delay { display: inline-block; font: 600 .78rem var(--mono); color: var(--muted); background: var(--bg); padding: .05rem .45rem; border-radius: 999px; margin-bottom: .3rem; }
+/* the last hop has no rail of its own: draw it from the top down to its dot (fixed delay-chip height makes that offset known) */
+.hop:last-child:not(:first-child)::before { content: ''; position: absolute; left: -2px; top: 0; height: .5rem; border-left: 2px solid var(--line); }
+.hop:last-child:not(:first-child):has(.delay)::before { height: 2.1rem; }
+.hop-main { position: relative; overflow-wrap: anywhere; }
+.hop-main::before { content: ''; position: absolute; left: calc(-1.6rem - .5rem); top: .3rem; width: .8rem; height: .8rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--action); }
+.hop:last-child .hop-main::before { background: var(--action); }
+.hop.warn .hop-main::before { border-color: var(--high); }
+.delay { display: block; width: fit-content; height: 1.3rem; font: 600 .78rem/1.3rem var(--mono); color: var(--muted); background: var(--bg); padding: 0 .45rem; border-radius: 999px; margin-bottom: .3rem; }
 .hop.warn .delay { color: var(--high); background: var(--high-bg); }
-.hop-main { overflow-wrap: anywhere; }
 .ip { color: var(--muted); margin-left: .4rem; }
 .arrow { color: var(--muted); }
 .hop-meta { color: var(--muted); font-size: .85rem; }
@@ -233,7 +238,7 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 .issues li { font-size: .9rem; color: var(--high); padding-left: 1rem; position: relative; }
 .issues li::before { content: '!'; position: absolute; left: .15rem; font-weight: 700; }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .7rem; align-items: center; }
-.lookup { font-size: .85rem; padding: .35rem .7rem; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; }
+.lookup { font-size: .85rem; padding: .35rem .7rem; border: 1px solid var(--field-line); border-radius: 10px; text-decoration: none; }
 .lookup:hover { border-color: var(--action); }
 .hash { font-size: .78rem; color: var(--muted); margin-top: .3rem; }
 .att-name { overflow-wrap: anywhere; }
@@ -248,7 +253,7 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 .foot p { max-width: 75ch; }
 
 @media (max-width: 880px) {
-  .intake { grid-template-columns: 1fr; grid-template-areas: 'copy' 'inputs' 'checks'; gap: 2rem; padding-top: 1.5rem; }
+  .intake { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: 'copy' 'inputs' 'checks'; gap: 2rem; padding-top: 1.5rem; }
   .checks { margin-top: 0; }
   .layout { grid-template-columns: minmax(0, 1fr); }
   .col-verdict { position: static; max-height: none; overflow: visible; }
@@ -263,6 +268,10 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
   .row { flex-direction: column; }
   .panel, .verdict { padding: 1.1rem; }
   .score-n { font-size: 3.2rem; }
+  /* badge and points on one line, the title below at full width instead of squeezed between them */
+  .finding-head { flex-wrap: wrap; row-gap: .2rem; }
+  .finding-head h3 { order: 1; flex-basis: 100%; }
+  .points { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
