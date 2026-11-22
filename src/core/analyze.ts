@@ -95,6 +95,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'outlook-msg': ['delivery', 'info', 'Read from an Outlook .msg file', 'Outlook stores the original internet headers, the text and each attachment separately. mailsleuth rebuilt the message from them: the headers are the ones the mail server received, but the MIME layout, and the SHA-256 of an email attached inside it, belong to the rebuilt copy.'],
   'no-auth-results': ['authentication', 'info', 'No authentication results found', 'There is no Authentication-Results header, so SPF/DKIM/DMARC could not be reviewed. Paste the full headers (not just the body) to see them.'],
   'text-mismatch': ['links', 'high', 'Link text shows one site but goes to another', 'The visible text of a link can say anything. Here it names a different site than where the link really leads.'],
+  'mailto-mismatch': ['links', 'medium', 'An email link shows one address but writes to another', 'Clicking an email address in a message opens a new email to whatever address the link holds, which need not be the one shown. Used in invoice and CEO fraud to move the conversation to the attacker while you think you are writing to someone you know.'],
   'tracked-link': ['links', 'info', 'Links go through a mailing service\'s click tracking', 'The link text shows the sender\'s own site, but the link goes to their mailing service first, which counts the click and then forwards you. Newsletters do this routinely. The final destination is not visible here, so if a page asks for a password, check its address.'],
   'userinfo': ['links', 'high', 'Link uses the "@" trick', 'In web addresses everything before "@" is a username that browsers ignore, so a trusted name there is pure decoration.'],
   'javascript-uri': ['links', 'high', 'Link runs script code', 'A javascript: or vbscript: link executes code instead of opening a page. Legitimate emails do not need this.'],
@@ -250,6 +251,22 @@ function linkChecks(f: Findings, links: LinkInfo[]) {
   for (const [name, n] of perAttachment) f.add('attachment-links', `${name}: ${n} link${n === 1 ? '' : 's'}`);
 }
 
+/** mailto: links are not listed as links, but text showing one address over a link to another is a trick. */
+function mailtoChecks(f: Findings, links: { href: string; text: string | null; attachment?: string }[]) {
+  const domain = (a: string) => a.slice(a.lastIndexOf('@') + 1);
+  for (const l of links) {
+    if (!l.text || !/^mailto:/i.test(l.href)) continue;
+    const shown = findEmailsInText(l.text);
+    const to = l.href.slice(7).split('?')[0];
+    let decoded = to;
+    try {
+      decoded = decodeURIComponent(to);
+    } catch {} // a stray % keeps the raw text
+    const other = shown.length ? findEmailsInText(decoded).find((t) => !shown.some((s) => sameOrg(domain(s), domain(t)))) : undefined;
+    if (other) f.add('mailto-mismatch', `${l.attachment ? `in ${l.attachment}: ` : ''}link text shows ${shown[0]} but writes to ${other}`);
+  }
+}
+
 function attachmentChecks(f: Findings, atts: AttachmentInfo[]) {
   for (const a of atts) for (const i of a.issues) f.add(i.id, `${a.filename}: ${i.detail}`);
 }
@@ -289,7 +306,7 @@ function nextSteps(level: Analysis['level'], f: Findings, attachments: Attachmen
   if (attachments.some((a) => a.issues.some((i) => i.id !== 'pdf-encrypted'))) {
     steps.push('Do not open the attachment. If you already did, disconnect the device from the network and tell your IT or security team right away.');
   }
-  if (any('language-money', 'reply-to-mismatch', 'freemail-official')) {
+  if (any('language-money', 'reply-to-mismatch', 'mailto-mismatch', 'freemail-official')) {
     steps.push('Confirm any payment, gift-card purchase or bank-detail change by phone, using a number you already have, not one from this email.');
   }
   if (any('language-credentials', 'display-name-brand', 'lookalike-domain', 'text-mismatch')) {
@@ -458,6 +475,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   if (!h.length) f.add('no-headers', '');
   else if (msg?.transportHeaders !== false) authChecks(f, auth); // a .msg without headers has nothing to check
   linkChecks(f, links);
+  mailtoChecks(f, allLinks);
   attachmentChecks(f, attachments);
   nestedChecks(f, attachments);
   languageChecks(f, language);

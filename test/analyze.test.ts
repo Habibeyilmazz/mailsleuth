@@ -106,6 +106,20 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings.map((f) => f.id)).toContain('text-mismatch');
   });
 
+  it('flags a mailto: link whose text shows an address at another domain', async () => {
+    const html = (a: string) => analyze(`From: ceo@company.example\nContent-Type: text/html\n\n${a}`);
+    const bad = await html('Write to <a href="mailto:ceo.desk%40quick-reply.example?subject=Wire">ceo@company.example</a>');
+    const f = bad.findings.find((x) => x.id === 'mailto-mismatch');
+    expect(f?.points).toBe(12);
+    expect(f?.evidence).toEqual(['link text shows ceo@company.example but writes to ceo.desk@quick-reply.example']);
+    // Same organisation, plain name text, or no address in the text: nothing to flag.
+    for (const ok of [
+      '<a href="mailto:Sales@Mail.Company.example">sales@company.example</a>',
+      '<a href="mailto:x@quick-reply.example">Contact us</a>',
+      '<a href="mailto:ceo@company.example,x@company.example">ceo@company.example</a>',
+    ]) expect((await html(ok)).findings.map((x) => x.id)).not.toContain('mailto-mismatch');
+  });
+
   it('gives no reassurance for Authentication-Results it cannot tie to a receiving server', async () => {
     const a = await analyze('From: ceo@company.example\nAuthentication-Results: forged; dmarc=pass header.from=company.example\n\nHi');
     expect(a.auth.verified).toBe(false);
