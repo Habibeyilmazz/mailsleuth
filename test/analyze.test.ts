@@ -86,6 +86,14 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings.map((f) => f.id)).not.toContain('no-auth-results');
   });
 
+  it('does not mistake surnames and everyday words in a display name for a brand', async () => {
+    const ids = async (from: string) => (await analyze(`From: ${from}\nSubject: hi\n\nhi`)).findings.map((f) => f.id);
+    expect(await ids('Jane Norton <jane@company.example>')).not.toContain('display-name-brand');
+    expect(await ids('Weekly Market Outlook <news@bank.example>')).not.toContain('display-name-brand');
+    expect(await ids('Norton 360 <billing@renewals.example>')).toContain('display-name-brand');
+    expect(await ids('Microsoft Outlook <no-reply@mail-team.example>')).toContain('display-name-brand');
+  });
+
   it('handles empty and garbage input without throwing', async () => {
     expect((await analyze('')).score).toBe(0);
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
