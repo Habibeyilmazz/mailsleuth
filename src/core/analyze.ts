@@ -124,6 +124,8 @@ class Findings {
     const [category, severity, title, explanation] = CATALOG[id];
     const sev = override?.severity ?? severity;
     const f = this.map.get(id) ?? { id, category, severity: sev, points: POINTS[sev], title, explanation, evidence: [] };
+    // A later, more severe instance (e.g. a second attached email) raises the finding.
+    if (POINTS[sev] > f.points) [f.severity, f.points] = [sev, POINTS[sev]];
     if (evidence && !f.evidence.includes(evidence)) f.evidence.push(evidence);
     this.map.set(id, f);
   }

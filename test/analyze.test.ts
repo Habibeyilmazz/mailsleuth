@@ -94,6 +94,15 @@ describe('end-to-end on the bundled samples', () => {
     expect(await ids('Microsoft Outlook <no-reply@mail-team.example>')).toContain('display-name-brand');
   });
 
+  it('rates two attached emails by the riskier one', async () => {
+    const inner = (html: string) => `Content-Type: message/rfc822\n\nFrom: a@b.example\nContent-Type: text/html\n\n${html}\n`;
+    const a = await analyze(['Content-Type: multipart/mixed; boundary=b', '', '--b',
+      inner('<a href="https://evil.example/">paypal.com</a>'), '--b',
+      inner('<a href="https://evil.example/">paypal.com</a><a href="javascript:x()">Go</a><a href="data:text/html,x">Open</a>'), '--b--', ''].join('\n'));
+    expect(a.attachments.map((x) => x.email?.level)).toEqual(['suspicious', 'high']);
+    expect(a.findings.find((f) => f.id === 'attached-email')).toMatchObject({ severity: 'high', points: 25 });
+  });
+
   it('handles empty and garbage input without throwing', async () => {
     expect((await analyze('')).score).toBe(0);
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');

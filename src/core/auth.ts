@@ -24,8 +24,8 @@ export interface AuthReport {
   /** Topmost Authentication-Results: added by the final receiving system, the only one you can trust. */
   primary: AuthHeader | null;
   /**
-   * True when the topmost header's server also appears as a receiving server ("by") in the
-   * Received chain. Otherwise the results may be typed in by whoever built the message.
+   * True when the topmost header's server belongs to the same organization as the newest
+   * receiving server ("by" of the topmost Received). Otherwise the sender may have typed it in.
    */
   verified: boolean;
   /** Lower Authentication-Results headers. Anyone upstream (including the sender) could have written these. */
@@ -54,7 +54,7 @@ function explain(method: string, result: string, domain: string | null, comments
     temperror: 'could not be checked because of a temporary DNS problem. It says nothing either way.',
     permerror: `could not be checked because ${d} publishes a broken record. It says nothing either way.`,
   };
-  if (errors[result]) return { explanation: `${method.toUpperCase()} ${errors[result]}`, tone: 'neutral' };
+  if (Object.hasOwn(errors, result)) return { explanation: `${method.toUpperCase()} ${errors[result]}`, tone: 'neutral' };
   const table: Record<string, Record<string, [string, AuthResult['tone']]>> = {
     spf: {
       pass: [`The server that handed over this message is allowed to send mail for ${d}. Note: ${d} is the hidden envelope (bounce) domain, which can differ from the From address you see.`, 'good'],
@@ -88,7 +88,7 @@ function explain(method: string, result: string, domain: string | null, comments
       none: ["Microsoft's combined authentication made no verdict.", 'neutral'],
     },
   };
-  const hit = table[method]?.[result];
+  const hit = Object.hasOwn(table, method) && Object.hasOwn(table[method], result) ? table[method][result] : undefined;
   if (hit) return { explanation: hit[0], tone: hit[1] };
   return { explanation: `${method} check result: ${result}.`, tone: result === 'pass' ? 'good' : result === 'fail' ? 'bad' : 'neutral' };
 }
@@ -140,10 +140,14 @@ export function buildAuthReport(opts: {
   const fromDomain = opts.fromDomain;
   const pass = (method: string) => (primary?.results ?? []).filter((r) => r.method === method && r.result === 'pass');
   const id = primary?.authservId ?? '';
+  // Only the newest hop is written by the recipient's own provider: older Received headers,
+  // like Authentication-Results, can be typed in by the sender. IP-only hosts (Gmail's
+  // internal "by 2002:a05:...") are skipped.
+  const newestBy = [...opts.receivedBy].reverse().find((b) => /[a-z]/i.test(b) && b.includes('.') && !b.includes(':'));
   return {
     primary,
-    // Microsoft 365 omits the authserv-id; then any Received chain is the best we can check.
-    verified: Boolean(primary) && opts.receivedBy.length > 0 && (!id || opts.receivedBy.some((b) => sameOrg(b, id))),
+    // Microsoft 365 omits the authserv-id, so without one only a Microsoft receiving hop counts.
+    verified: Boolean(primary && newestBy) && sameOrg(newestBy!, id || 'outlook.com'),
     earlier: all.slice(1),
     arc,
     arcChain: newestSeal?.cv ?? null,

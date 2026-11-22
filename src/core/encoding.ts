@@ -69,7 +69,11 @@ export function decodeHeaderValue(raw: string): string {
     });
 }
 
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+// Includes the HTML5 names attackers use to hide a scheme from naive scanners ("https&colon;//").
+const ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', colon: ':', sol: '/', period: '.', commat: '@',
+  quest: '?', equals: '=', num: '#', percnt: '%', lowbar: '_', hyphen: '-', tab: '\t', newline: '\n',
+};
 
 export function decodeHtmlEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
@@ -77,18 +81,22 @@ export function decodeHtmlEntities(s: string): string {
       const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
       return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
     }
-    return ENTITIES[e.toLowerCase()] ?? m;
+    return Object.hasOwn(ENTITIES, e.toLowerCase()) ? ENTITIES[e.toLowerCase()] : m;
   });
 }
 
-/** Visible text of an HTML body. shortcut: regex-based, good enough for scoring words; not a full HTML parser. */
+/**
+ * Visible text of an HTML body. shortcut: regex-based, good enough for scoring words; not a full HTML parser.
+ * Every pattern may also end at end of input ("|$"): an unterminated tag then swallows the rest,
+ * as in a browser, and thousands of unterminated tags cost one scan instead of one scan each.
+ */
 export function htmlToText(html: string): string {
   return decodeHtmlEntities(
     html
-      .replace(/<(script|style|head)\b[\s\S]*?<\/\1\s*>/gi, ' ')
-      .replace(/<!--[\s\S]*?-->/g, ' ')
-      .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)\b[^>]*>/gi, '\n')
-      .replace(/<[^>]+>/g, ' '),
+      .replace(/<(script|style|head)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, ' ')
+      .replace(/<!--[\s\S]*?(?:-->|$)/g, ' ')
+      .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)\b[^>]*(?:>|$)/gi, '\n')
+      .replace(/<[^>]+(?:>|$)/g, ' '),
   )
     .replace(/[ \t ]+/g, ' ')
     .replace(/\s*\n\s*/g, '\n')

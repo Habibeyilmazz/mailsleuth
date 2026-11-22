@@ -3,6 +3,7 @@ import { inspectAttachment, sniffKind } from '../src/core/attachments';
 import { inspectDomain, orgDomain, skeleton } from '../src/core/domains';
 import { scanLanguage } from '../src/core/language';
 import { decodePunycodeLabel, toUnicodeDomain } from '../src/core/punycode';
+import { htmlToText } from '../src/core/encoding';
 import { analyzeLink, extractHtmlLinks, extractTextLinks } from '../src/core/urls';
 import { makeZip } from '../scripts/zip.ts';
 
@@ -89,6 +90,29 @@ describe('links', () => {
   it('reads the real href, not data-href, and strips URL whitespace like browsers do', () => {
     expect(extractHtmlLinks('<a data-href="https://paypal.com" href="https://evil.example/">x</a>')[0].href).toBe('https://evil.example/');
     expect(extractHtmlLinks('<a href="java&#10;script:alert(1)">go</a>')[0].href).toBe('javascript:alert(1)');
+    expect(extractHtmlLinks(`<a title=" href='https://paypal.com/'" href="https://evil.example/">x</a>`)[0].href).toBe('https://evil.example/');
+    expect(extractHtmlLinks('<a name=top>x</a>')).toEqual([]);
+    expect(extractHtmlLinks('<a href="https://a.example/">one<a href="https://b.example/">two')).toEqual([
+      { href: 'https://a.example/', text: 'one' },
+      { href: 'https://b.example/', text: 'two' },
+    ]);
+  });
+  it('stays fast on thousands of unterminated tags', () => {
+    const t = performance.now();
+    for (const junk of ['<a title="', '<a ', '<script', '<!--', '<']) {
+      extractHtmlLinks(junk.repeat(50000));
+      htmlToText(junk.repeat(50000));
+    }
+    expect(performance.now() - t).toBeLessThan(1000);
+  });
+  it('reads link text and hrefs the way a browser renders them', () => {
+    expect(extractHtmlLinks('<a href="https://evil.example/"><span>pay</span><span>pal.com</span></a>')[0].text).toBe('paypal.com');
+    expect(extractHtmlLinks('<a href="https://e.example/">Visit<br>paypal.com</a>')[0].text).toBe('Visit paypal.com');
+    expect(extractHtmlLinks('<a href="https&colon;//evil.example/login">x</a>')[0].href).toBe('https://evil.example/login');
+    expect(extractHtmlLinks('<a title="balance > 0" href="https://evil.example/">x</a><form class="a>b" action="https://f.example/">')).toEqual([
+      { href: 'https://evil.example/', text: 'x' },
+      { href: 'https://f.example/', text: '(form submit)' },
+    ]);
   });
   it('extracts links from HTML (with entities) and plain text', () => {
     expect(extractHtmlLinks(`<a class=x href='https://a.example/?a=1&amp;b=2'><b>Go</b> now</a><form action=https://b.example/post>`)).toEqual([
@@ -125,6 +149,9 @@ describe('attachments', () => {
   });
   it('flags programs recognized by content even without an extension', () => {
     expect(attIssues('unnamed-attachment', 'MZ\x90\x00')).toEqual(['executable']);
+  });
+  it('survives attacker-chosen extensions that are Object.prototype names', () => {
+    expect(inspectAttachment('x.constructor', new Uint8Array([0x4d, 0x5a, 0, 0])).issues.map((i) => i.id)).toEqual(['executable']);
   });
   it('recognizes ISO and LNK by magic bytes', () => {
     const iso = new Uint8Array(0x8010);

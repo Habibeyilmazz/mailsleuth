@@ -153,16 +153,26 @@ const cleanHref = (raw: string) => decodeHtmlEntities(raw).replace(/[\t\n\r]/g, 
 
 export function extractHtmlLinks(html: string): { href: string; text: string }[] {
   const out: { href: string; text: string }[] = [];
-  const attr = (tag: string, name: string) =>
-    // Attribute must start after whitespace or a quote, so data-href is not mistaken for href.
-    new RegExp(`(?:^|[\\s"'/])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
-  for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
+  // Walks the attributes in order, so neither data-href nor an href written inside another
+  // attribute's quoted value (title=" href='https://paypal.com'") is mistaken for the real one.
+  const attr = (tag: string, name: string) => {
+    for (const m of tag.matchAll(/([^\s"'>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g)) {
+      if (m[1].toLowerCase() === name) return m[2] ?? m[3] ?? m[4] ?? '';
+    }
+    return null;
+  };
+  // Attributes may contain ">" inside quotes (title="a > b"). Like in a browser, a new <a> closes
+  // the previous one and unterminated markup runs to the end of input, which keeps hostile input linear.
+  const attrs = `((?:[^>"']|"[^"]*(?:"|$)|'[^']*(?:'|$))*)(?:>|$)`;
+  for (const m of html.matchAll(new RegExp(`<a\\b${attrs}([\\s\\S]*?)(?:<\\/a\\s*>|(?=<a[\\s>])|$)`, 'gi'))) {
     const h = attr(m[1], 'href');
-    if (h) out.push({ href: cleanHref(h[1] ?? h[2] ?? h[3]), text: decodeHtmlEntities(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim() });
+    // Inline tags join text ("<span>pay</span><span>pal.com</span>" reads "paypal.com"); block tags separate it.
+    const text = m[2].replace(/<(br|p|div|tr|td|li|h\d)\b[^>]*(?:>|$)/gi, ' ').replace(/<[^>]+(?:>|$)/g, '');
+    if (h !== null) out.push({ href: cleanHref(h), text: decodeHtmlEntities(text).replace(/\s+/g, ' ').trim() });
   }
-  for (const m of html.matchAll(/<(area|form)\b([^>]*)>/gi)) {
+  for (const m of html.matchAll(new RegExp(`<(area|form)\\b${attrs}`, 'gi'))) {
     const h = attr(m[2], m[1].toLowerCase() === 'form' ? 'action' : 'href');
-    if (h) out.push({ href: cleanHref(h[1] ?? h[2] ?? h[3]), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
+    if (h !== null) out.push({ href: cleanHref(h), text: m[1].toLowerCase() === 'form' ? '(form submit)' : '' });
   }
   return out;
 }

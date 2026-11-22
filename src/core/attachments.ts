@@ -124,8 +124,10 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
   if (decoy && dangerous) {
     issues.push({ id: 'double-extension', detail: `"${name}" pretends to be a .${decoy[1].toLowerCase()} file but is really .${ext}` });
   }
+  // hasOwn: the extension comes from the attacker, and "x.constructor" must not find Object.prototype.constructor.
+  const expected = Object.hasOwn(EXT_KIND, ext) ? EXT_KIND[ext] : undefined;
   if (EXECUTABLE.has(ext)) issues.push({ id: 'executable', detail: `.${ext} files run code on your computer when opened` });
-  else if ((kind === 'exe' || kind === 'lnk') && !EXT_KIND[ext]) {
+  else if ((kind === 'exe' || kind === 'lnk') && !expected) {
     issues.push({ id: 'executable', detail: `the content is a ${KIND_LABEL[kind]} even though the name does not say so` });
   }
   if (DISK_IMAGE.has(ext) || kind === 'iso') issues.push({ id: 'disk-image', detail: 'disk image files are used to smuggle programs past Windows download warnings' });
@@ -153,7 +155,6 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
   if (MACRO_EXT.has(ext) && !issues.some((i) => i.id === 'office-macro')) {
     issues.push({ id: 'macro-enabled-type', detail: `.${ext} is a macro-enabled Office format` });
   }
-  const expected = EXT_KIND[ext];
   if (kind && expected && !expected.includes(kind)) {
     issues.push({ id: 'type-mismatch', detail: `named .${ext} but its content is a ${KIND_LABEL[kind]}` });
   }

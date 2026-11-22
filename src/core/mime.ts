@@ -122,11 +122,12 @@ export function parseStructuredHeader(raw: string): { value: string; params: Rec
       ? decodeCharset(binaryToBytes(binary), charset)
       : decodeHeaderValue(binary);
   }
-  return { value: first.trim().toLowerCase(), params };
+  // RFC 2045 allows comments: "multipart/mixed (report); boundary=b".
+  return { value: first.replace(/\([^()]*\)/g, '').trim().toLowerCase(), params };
 }
 
 function decodeBody(body: string, cte: string): Uint8Array {
-  switch (cte.trim().toLowerCase()) {
+  switch (cte.replace(/\([^()]*\)/g, '').trim().toLowerCase()) {
     case 'base64':
       return decodeBase64(body);
     case 'quoted-printable':

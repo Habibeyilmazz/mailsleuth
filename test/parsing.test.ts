@@ -18,6 +18,9 @@ describe('encoding', () => {
   it('decodes quoted-printable soft line breaks', () => {
     expect(dec(decodeQuotedPrintable('ab=\ncd=3D=C3=A9'))).toBe('abcd=é');
   });
+  it('leaves unknown entities and Object.prototype names alone', () => {
+    expect(htmlToText('a &constructor; b &colon;')).toBe('a &constructor; b :');
+  });
   it('turns HTML into visible text without script/style', () => {
     expect(htmlToText('<style>x{}</style><p>Hi&nbsp;there</p><script>evil()</script><p>&amp; bye</p>')).toBe('Hi there\n& bye');
   });
@@ -65,6 +68,11 @@ describe('mime', () => {
     const att = parts.find(isAttachment)!;
     expect(att.filename).toBe('a.bin');
     expect(dec(att.body)).toBe('hello');
+  });
+  it('ignores RFC 2045 comments in Content-Type and Content-Transfer-Encoding', () => {
+    const msg = parseMessage('Content-Type: multipart/mixed (report); boundary=b\n\n--b\nContent-Type: application/octet-stream\nContent-Transfer-Encoding: base64 (file)\n\naGVsbG8=\n--b--\n');
+    expect(msg.contentType).toBe('multipart/mixed');
+    expect(dec(msg.children[0].body)).toBe('hello');
   });
   it('tolerates a missing closing boundary', () => {
     const msg = parseMessage('Content-Type: multipart/mixed; boundary=b\n\n--b\n\nonly part\n');
@@ -135,6 +143,13 @@ describe('authentication results', () => {
     const base = { arcAuthResults: [], arcSeals: [], receivedSpf: null, fromDomain: 'company.example' };
     expect(buildAuthReport({ ...base, authResults: ['forged; dmarc=pass header.from=company.example'], receivedBy: [] }).verified).toBe(false);
     expect(buildAuthReport({ ...base, authResults: ['forged; dmarc=pass header.from=company.example'], receivedBy: ['mx.example.net'] }).verified).toBe(false);
+    // A forged Received hop below the provider's own does not make forged results trustworthy.
+    expect(buildAuthReport({ ...base, authResults: ['mx.evil.example; dmarc=pass header.from=company.example'], receivedBy: ['mx.evil.example', 'mx.example.net'] }).verified).toBe(false);
+    // Without an authserv-id only a Microsoft 365 receiving hop vouches for the header.
+    expect(buildAuthReport({ ...base, authResults: ['dmarc=pass header.from=company.example'], receivedBy: ['mx.example.net'] }).verified).toBe(false);
+    expect(buildAuthReport({ ...base, authResults: ['dmarc=pass header.from=company.example'], receivedBy: ['mail.protection.outlook.com', 'AM0PR01MB1.eurprd01.prod.outlook.com'] }).verified).toBe(true);
+    // Gmail's newest hop is an IP-only internal host; the hop below it is mx.google.com.
+    expect(buildAuthReport({ ...base, authResults: ['mx.google.com; dmarc=pass header.from=company.example'], receivedBy: ['mx.google.com', '2002:a05:6a10:c8a:b0:'] }).verified).toBe(true);
   });
 
   it('parses a Google-style header with comments and properties', () => {
@@ -149,6 +164,10 @@ describe('authentication results', () => {
     ]);
     expect(ar.results[2].explanation).toContain('p=reject');
     expect(ar.results[2].tone).toBe('bad');
+  });
+  it('explains unknown results without reaching Object.prototype', () => {
+    const r = parseAuthResults('mx; dkim=constructor; constructor=tostring').results;
+    expect(r.map((x) => x.explanation)).toEqual(['dkim check result: constructor.', 'constructor check result: tostring.']);
   });
   it('parses Microsoft-style headers without an authserv-id', () => {
     const ar = parseAuthResults('spf=fail (sender IP is 203.0.113.80) smtp.mailfrom=bad.example; dkim=none (message not signed) header.d=none;dmarc=fail action=quarantine header.from=bad.example;compauth=fail reason=000');
