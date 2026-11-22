@@ -1,6 +1,7 @@
 import { CLICK_TRACKERS, URL_SHORTENERS } from './data';
 import { inspectDomain, normalizeDomain, orgDomain, sameOrg, type DomainIssue } from './domains';
 import { decodeHtmlEntities } from './encoding';
+import { defang } from './report';
 
 export type LinkIssueId =
   | 'text-mismatch'
@@ -11,7 +12,8 @@ export type LinkIssueId =
   | 'javascript-uri'
   | 'userinfo'
   | 'open-redirect'
-  | 'risky-download';
+  | 'risky-download'
+  | 'local-link';
 
 export interface LinkIssue {
   id: LinkIssueId;
@@ -32,7 +34,10 @@ export interface LinkInfo {
   domainIssues: DomainIssue[];
 }
 
-const RISKY_DOWNLOAD = /\.(exe|scr|msi|bat|cmd|js|jse|vbs|vbe|wsf|hta|ps1|jar|apk|lnk|iso|img|vhdx?|zip|rar|7z|html?|svg|one)$/i;
+// Windows protocol handlers seen in phishing: they open a search window, a troubleshooter or an installer, not a web page.
+const OS_HANDLERS = new Set(['search-ms', 'search', 'ms-msdt', 'ms-officecmd', 'ms-appinstaller', 'ms-word', 'ms-excel', 'ms-powerpoint']);
+
+const RISKY_DOWNLOAD =/\.(exe|scr|msi|bat|cmd|js|jse|vbs|vbe|wsf|hta|ps1|jar|apk|lnk|iso|img|vhdx?|zip|rar|7z|html?|svg|one)$/i;
 
 function safeDecode(s: string): string {
   try {
@@ -114,8 +119,17 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
     info.issues.push({ id: 'data-uri', detail: `link opens content embedded in the email itself (${info.finalUrl.slice(0, 40)}…), a trick to show a fake page without any web address` });
     return info;
   }
-  if (scheme === 'javascript') {
+  if (scheme === 'javascript' || scheme === 'vbscript') {
     info.issues.push({ id: 'javascript-uri', detail: 'link runs script code instead of opening a web page' });
+    return info;
+  }
+  // Opening an SMB share sends the Windows login hash to it (Outlook "MonikerLink", CVE-2024-21413).
+  if (scheme === 'file' || info.finalUrl.startsWith('\\\\')) {
+    info.issues.push({ id: 'local-link', detail: `link opens a network or local file (${defang(info.finalUrl.slice(0, 80))}) instead of a web page` });
+    return info;
+  }
+  if (scheme && OS_HANDLERS.has(scheme)) {
+    info.issues.push({ id: 'local-link', detail: `link starts a Windows program (${scheme}:) instead of opening a web page` });
     return info;
   }
   if (!url || !/^https?:$/.test(url.protocol)) return info;
@@ -159,8 +173,9 @@ export function analyzeLink(href: string, text: string | null, source: LinkInfo[
  * Pulls links out of HTML. shortcut: regex over <a>/<area>/<form>, which covers what mail
  * clients render as clickable; a real DOM parser would also catch malformed markup.
  */
-// Browsers drop tabs and newlines inside URLs, so "java&#10;script:" still runs script.
-const cleanHref = (raw: string) => decodeHtmlEntities(raw).replace(/[\t\n\r]/g, '').trim();
+// Browsers drop tabs and newlines inside URLs and leading control characters and spaces,
+// so "java&#10;script:" and "&#1;javascript:" still run script.
+const cleanHref = (raw: string) => decodeHtmlEntities(raw).replace(/[\t\n\r]/g, '').replace(/^[\0- ]+/, '').trimEnd();
 
 export function extractHtmlLinks(html: string): { href: string; text: string }[] {
   const out: { href: string; text: string }[] = [];
@@ -209,5 +224,5 @@ export function extractTextLinks(text: string): string[] {
 }
 
 export function isIgnorableHref(href: string): boolean {
-  return !href || /^(#|mailto:|tel:|cid:|sms:)/i.test(href) || !/^[a-z][a-z0-9+.-]*:/i.test(href);
+  return !href || /^(#|mailto:|tel:|cid:|sms:)/i.test(href) || !/^([a-z][a-z0-9+.-]*:|\\\\)/i.test(href); // \\server\share is a UNC path, not relative
 }

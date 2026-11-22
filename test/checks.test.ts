@@ -4,7 +4,7 @@ import { inspectDomain, orgDomain, skeleton } from '../src/core/domains';
 import { scanLanguage } from '../src/core/language';
 import { decodePunycodeLabel, toUnicodeDomain } from '../src/core/punycode';
 import { htmlToText } from '../src/core/encoding';
-import { analyzeLink, extractHtmlLinks, extractTextLinks } from '../src/core/urls';
+import { analyzeLink, extractHtmlLinks, extractTextLinks, isIgnorableHref } from '../src/core/urls';
 import { makeZip } from '../scripts/zip.ts';
 
 const kinds = (d: string) => inspectDomain(d).map((i) => i.kind);
@@ -123,6 +123,20 @@ describe('links', () => {
     expect(linkIssues('javascript:alert(1)')).toEqual(['javascript-uri']);
     expect(linkIssues('https://trusted.example/out?next=https://evil.example/')).toEqual(['open-redirect']);
     expect(linkIssues('https://files.example/invoice.iso')).toEqual(['risky-download']);
+  });
+  it('flags links that open a file share or start a program (NTLM leak, search-ms, Follina)', () => {
+    expect(linkIssues('file:///\\\\192.0.2.7\\share\\doc.rtf!x')).toEqual(['local-link']); // CVE-2024-21413 "MonikerLink"
+    expect(linkIssues('file://evil.example/share/x.exe')).toEqual(['local-link']);
+    expect(linkIssues('\\\\evil.example\\share\\x.exe')).toEqual(['local-link']);
+    expect(linkIssues('search-ms:query=invoice&crumb=location:\\\\evil.example\\s')).toEqual(['local-link']);
+    expect(linkIssues('ms-msdt:/id PCWDiagnostic')).toEqual(['local-link']);
+    expect(linkIssues('https://www.google.com/url?q=file://evil.example/s/x.lnk')).toEqual(['local-link']);
+    expect(linkIssues('vbscript:msgbox(1)')).toEqual(['javascript-uri']);
+    expect(isIgnorableHref('\\\\evil.example\\share')).toBe(false);
+    expect(isIgnorableHref('images/logo.png')).toBe(true);
+  });
+  it('strips leading control characters from hrefs like browsers do', () => {
+    expect(extractHtmlLinks('<a href=" \u0001javascript:alert(1)">x</a>')[0].href).toBe('javascript:alert(1)');
   });
   it('does not trust look-alike wrapper hosts and survives bad percent-encoding', () => {
     const fake = analyzeLink('https://google.attacker.example/url?q=https%3A%2F%2Fpaypal.com', 'paypal.com', 'html');

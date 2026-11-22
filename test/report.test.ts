@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
 import { bytesToBinary, textToBinary } from '../src/core/encoding';
 import { code, defang, toMarkdown } from '../src/core/report';
+import { analyzeLink } from '../src/core/urls';
 
 const sample = (name: string) => analyze(bytesToBinary(new Uint8Array(readFileSync(new URL(`../samples/${name}`, import.meta.url)))));
 
@@ -46,6 +47,12 @@ describe('defang', () => {
   it('breaks the scheme and every dot of the host, not the path', () => {
     expect(defang('https://a.b.example/x.zip?q=1.2')).toBe('hxxps://a[.]b[.]example/x.zip?q=1.2');
     expect(defang('data:text/html,hi')).toBe('data:text/html,hi');
+  });
+  it('breaks the host of file links and UNC paths, which Outlook and Teams make clickable', () => {
+    expect(defang('\\\\evil.example\\s\\x.exe')).toBe('\\\\evil[.]example\\s\\x.exe');
+    expect(defang('file://evil.example/s/x.lnk')).toBe('file://evil[.]example/s/x.lnk');
+    expect(defang('file:///\\\\192.0.2.7\\share\\a.rtf')).toBe('file:///\\\\192[.]0[.]2[.]7\\share\\a.rtf');
+    expect(analyzeLink('\\\\evil.example\\s', null, 'html').issues[0].detail).toContain('evil[.]example');
   });
 });
 

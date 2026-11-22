@@ -13,7 +13,7 @@ const SEVERITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low', info: 'Note
 export function defang(url: string): string {
   return url
     .replace(/^http(s?):\/\//i, (_, s: string) => `hxxp${s}://`)
-    .replace(/^(hxxps?:\/\/[^/?#]*)/i, (host) => host.replace(/\./g, '[.]'));
+    .replace(/^(hxxps?:\/\/[^/?#]*|(?:file:\/*)?\\\\[^\\/]*|file:\/*[^/\\?#]*)/i, (host) => host.replace(/\./g, '[.]'));
 }
 
 export function formatBytes(n: number): string {
