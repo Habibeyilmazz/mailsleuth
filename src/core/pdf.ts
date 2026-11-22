@@ -15,10 +15,10 @@ const MAX_INFLATED = 32 * 1024 * 1024; // across all object streams: a small PDF
 const MAX_STRING = 8192;
 
 /** Reads a zlib stream as far as it is valid: a stream with trailing bytes or cut short still yields its start. */
-async function inflate(data: Uint8Array, budget: number): Promise<Uint8Array> {
+export async function inflate(data: Uint8Array, budget: number, format: CompressionFormat = 'deflate'): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let size = 0;
-  const reader = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
+  const reader = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream(format)).getReader();
   try {
     for (;;) {
       const { done, value } = await reader.read();

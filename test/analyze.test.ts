@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
 import { bytesToBinary, textToBinary } from '../src/core/encoding';
 import { makePdf } from '../scripts/pdf.ts';
+import { makeZip } from '../scripts/zip.ts';
 
 const sample = (name: string) => analyze(bytesToBinary(new Uint8Array(readFileSync(new URL(`../samples/${name}`, import.meta.url)))));
 const ids = (a: Awaited<ReturnType<typeof analyze>>) => a.findings.map((f) => f.id).sort();
@@ -89,6 +90,34 @@ describe('end-to-end on the bundled samples', () => {
     expect(ids(a)).toEqual(['attachment-links', 'no-auth-results', 'pdf-javascript', 'shortener']);
     expect(a.findings.find((f) => f.id === 'shortener')!.evidence).toEqual(['in doc.pdf: bit.ly is a link shortener: the real destination is hidden until you click']);
     expect(a.nextSteps.join(' ')).toContain('Do not open the attachment');
+  });
+
+  it('reads external links and remote templates from Office attachments, stored or deflated', async () => {
+    const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+    const rel = (type: string, target: string, ext = true) => `<Relationship Id="r${type}" Type="${R}${type}" Target="${target}"${ext ? ' TargetMode="External"' : ''}/>`;
+    const documentRels = `<Relationships>${rel('styles', 'styles.xml', false)}${rel('hyperlink', 'https://rnicrosoft-online.example/doc?a=1&amp;b=2')}${rel('hyperlink', '\\\\files.example\\share')}</Relationships>`;
+    const settingsRels = `<Relationships>${rel('attachedTemplate', 'file:///C:\\Users\\pat\\Normal.dotm')}${rel('attachedTemplate', 'http://203.0.113.9/t.dotm')}</Relationships>`;
+    const deflate = async (t: string) => new Uint8Array(await new Response(new Blob([t]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+    const docx = makeZip([
+      { name: '[Content_Types].xml', data: '<Types/>' },
+      { name: 'word/document.xml', data: '<w:document/>' },
+      { name: 'word/_rels/document.xml.rels', data: documentRels, deflated: await deflate(documentRels) },
+      { name: 'word/_rels/settings.xml.rels', data: settingsRels },
+    ]);
+    const eml = `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nhi\n--b\nContent-Type: application/octet-stream\nContent-Disposition: attachment; filename=Contract.docx\nContent-Transfer-Encoding: base64\n\n${Buffer.from(docx).toString('base64')}\n--b--\n`;
+    const a = await analyze(eml);
+    expect(a.links.map((l) => [l.href, l.source, l.attachment])).toEqual([
+      ['https://rnicrosoft-online.example/doc?a=1&b=2', 'office', 'Contract.docx'],
+      ['\\\\files.example\\share', 'office', 'Contract.docx'],
+      ['http://203.0.113.9/t.dotm', 'office', 'Contract.docx'],
+    ]);
+    expect(ids(a)).toEqual(expect.arrayContaining(['office-remote-content', 'lookalike-domain', 'local-link', 'ip-host', 'attachment-links']));
+    expect(a.findings.find((f) => f.id === 'office-remote-content')!.evidence).toEqual(['Contract.docx: the document loads attachedTemplate: http://203.0.113.9/t.dotm when opened']);
+    // An ordinary document with only internal parts and a template on the author's disk: nothing to report.
+    const plain = makeZip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/_rels/settings.xml.rels', data: `<Relationships>${rel('attachedTemplate', 'file:///C:\\T\\Normal.dotm')}</Relationships>` }]);
+    const b = await analyze(eml.replace(Buffer.from(docx).toString('base64'), Buffer.from(plain).toString('base64')));
+    expect(b.links).toEqual([]);
+    expect(b.attachments[0].issues).toEqual([]);
   });
 
   it('never produces findings without an explanation', async () => {

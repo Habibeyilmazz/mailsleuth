@@ -24,8 +24,8 @@ export interface LinkInfo {
   href: string;
   /** Visible link text (HTML) or null for bare URLs in plain text. */
   text: string | null;
-  /** pdf: a URI action inside a PDF attachment (no visible text is read). */
-  source: 'html' | 'text' | 'pdf';
+  /** pdf: a URI action inside a PDF attachment; office: an external link in a Word/Excel/PowerPoint file (no visible text is read). */
+  source: 'html' | 'text' | 'pdf' | 'office';
   /** File name of the attachment the link was found in, or null for the email's own text. */
   attachment: string | null;
   /** Destination after unwrapping known redirect wrappers (Safe Links, Proofpoint, Google...). */

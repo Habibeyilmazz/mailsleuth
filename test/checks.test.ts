@@ -209,7 +209,7 @@ describe('attachments', () => {
     expect(readZipEntries(cut).map((e) => e.name)).toEqual(['readme.txt', 'invoice.pdf.exe']);
     expect(attIssues('docs.zip', cut)).toEqual(['archive-risky-content']);
     const joined = new Uint8Array([...makeZip([{ name: 'a.txt', data: 'x' }]), ...makeZip([{ name: 'b.js', data: 'x', encrypted: true }])]);
-    expect(readZipEntries(joined)).toEqual([{ name: 'a.txt', encrypted: false }, { name: 'b.js', encrypted: true }]);
+    expect(readZipEntries(joined).map(({ name, encrypted }) => ({ name, encrypted }))).toEqual([{ name: 'a.txt', encrypted: false }, { name: 'b.js', encrypted: true }]);
     expect(readZipEntries(zip).map((e) => e.name)).toEqual(['readme.txt', 'invoice.pdf.exe']); // listed once
   });
   it('calls a password-protected .docx/.xlsx encrypted, not a type mismatch', () => {

@@ -98,8 +98,8 @@ npm run preview      # serves dist/ on http://localhost:4191
 | Authentication | SPF, DKIM, DMARC, ARC and Microsoft `compauth` from `Authentication-Results`, each explained in plain English; DMARC alignment; only the topmost header is trusted, and only when its server matches the newest `Received` hop (a header without a server name only behind a Microsoft 365 hop); earlier ones are shown as unverifiable |
 | Delivery path | Every `Received` hop on a timeline with the delay since the previous hop; timestamps that go backwards are flagged |
 | Links | Text that shows one site while linking to another (a file name such as `Report.pdf` is not a site, and the sender's own site behind a known mailing service's click tracking, such as Mailchimp or SendGrid, is a note rather than a warning); an email address shown over a `mailto:` link to another domain; Microsoft Safe Links, Proofpoint URL Defense (v2/v3), Google and Facebook redirects unwrapped before checking; shorteners; bare and disguised IP addresses (`http://3325256727/`); `user@host` tricks; `data:`, `javascript:` and `vbscript:` links; `file:` links, `\\server\share` paths and Windows handlers such as `search-ms:` and `ms-msdt:` (they open a share or a program; a share can receive the Windows login hash); open redirects; direct links to risky file types. Links inside PDF and HTML attachments get the same checks and are marked with the file they came from (see below) |
-| Attachments | SHA-256 of each file, including files uuencoded into the message text (`begin 644 name`, which Thunderbird still shows as an attachment); type detected from content, not the name; VBA macros found by structure (OOXML `vbaProject.bin`, OLE `_VBA_PROJECT`); double extensions; hidden right-to-left characters; executables and scripts, ISO/IMG/VHD, LNK, OneNote, HTML/SVG; ZIP contents listed, risky entries and password protection flagged; password-protected Office documents; content that does not match the extension; in PDFs: JavaScript, Launch actions (start a program), embedded files, and encryption that hides the PDF's links |
-| Links inside attachments | The "your document is attached" lure keeps the email itself clean and puts the real link in the attachment. mailsleuth reads link actions (`/URI`) from PDFs, both in plain objects and in the compressed object streams most current PDF writers use, and from HTML/SVG attachments it takes `<a>` links, form targets, and every bare URL in the file (script redirects, `<meta>` refreshes). Each appears under Links with "Inside the attachment …", and a note lists how many links each attachment has |
+| Attachments | SHA-256 of each file, including files uuencoded into the message text (`begin 644 name`, which Thunderbird still shows as an attachment); type detected from content, not the name; VBA macros found by structure (OOXML `vbaProject.bin`, OLE `_VBA_PROJECT`); double extensions; hidden right-to-left characters; executables and scripts, ISO/IMG/VHD, LNK, OneNote, HTML/SVG; ZIP contents listed, risky entries and password protection flagged; password-protected Office documents; content that does not match the extension; in PDFs: JavaScript, Launch actions (start a program), embedded files, and encryption that hides the PDF's links; in Word/Excel/PowerPoint files: templates or objects loaded from a web address when the file opens (template injection, "Follina") |
+| Links inside attachments | The "your document is attached" lure keeps the email itself clean and puts the real link in the attachment. mailsleuth reads link actions (`/URI`) from PDFs, both in plain objects and in the compressed object streams most current PDF writers use, and from HTML/SVG attachments it takes `<a>` links, form targets, and every bare URL in the file (script redirects, `<meta>` refreshes), and from Word/Excel/PowerPoint files every external link their relationship parts declare. Each appears under Links with "Inside the attachment …", and a note lists how many links each attachment has |
 | Language | English phrases for credential phishing, money requests (gift cards, bank-detail changes), urgency/secrecy and threats; every match is quoted |
 | Forwarded reports | An email attached as `message/rfc822`, as any file named `.eml`, or as an Outlook `.msg` file (how users report phishing) gets its own full analysis; in the UI, "Analyze attached email" opens it |
 | Outlook `.msg` | Read without Outlook: the internet headers Outlook kept, every stored body (plain text, HTML, and compressed RTF, including HTML encapsulated in it as in most `.msg` files; all are checked because Outlook may show any of them), attachments and attached messages. The message is rebuilt as MIME and goes through every check above. Without stored internet headers (drafts, sent items, some internal mail), the sender, recipients and subject Outlook stored are used and the report says that authentication could not be checked. A damaged file (broken sector chain, failed RTF checksum) is refused rather than half-read |
@@ -127,6 +127,7 @@ src/core/      shared by web and CLI, no dependencies
   urls.ts        link extraction, wrapper unwrapping, link tricks
   attachments.ts magic-byte sniffing, ZIP central directory, macro detection
   pdf.ts         PDF link actions, JavaScript/Launch/embedded-file markers, Flate object streams
+  office.ts      Word/Excel/PowerPoint external links and remote templates from _rels/*.rels
   language.ts    phrase patterns
   analyze.ts     runs everything, scores, writes next steps
   report.ts      defanged Markdown report (page button and CLI --markdown)
@@ -160,7 +161,7 @@ What mailsleuth adds: the whole message (headers, body, links and attachment str
 ```sh
 npm run typecheck
 npm test                 # Vitest unit and end-to-end tests on the samples
-npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about 15 s)
+npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about a minute)
 npm run build
 npm run e2e -- chromium   # main journey (samples, file picker, paste) served from /mailsleuth/ like Pages; page must match the CLI; axe-core accessibility check, light and dark
 npm run screenshots      # drives the built app in Chromium (Playwright), fails on console errors or external requests
@@ -175,7 +176,7 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 - HTML is scanned with regular expressions, not a DOM parser; badly malformed markup can hide a link.
 - Ten mailing services' click trackers are known (Mailchimp, SendGrid, HubSpot, Amazon SES and others in `src/core/data.ts`). A newsletter sent through another service, with its own site as the link text, is still reported as "Link text shows one site but goes to another".
 - Language checks are English only.
-- Attachments are inspected, not decompressed: macros inside nested archives and remote-template tricks in Office files are not detected. ZIP archives and Office documents are not searched for links.
+- Archives are listed, not unpacked: macros inside nested archives are not detected and files inside a ZIP are not searched for links. In Office documents the link targets are read but not the text shown over them, so a text/link mismatch inside a document is not flagged.
 - PDFs are scanned for link actions, not parsed in full: an encrypted PDF (including the common kind that opens without a password) is reported as encrypted but its links cannot be read; a link stored as an indirect reference, in a PDF form's submit action, or written only as page text or in a QR code image is missed. JavaScript in an HTML attachment is not run, so a link it builds at run time (from `atob(...)` or string pieces) is missed.
 - `.msg` files: OLE-object and by-reference (cloud link) attachments are named in the report but not extracted, and the SHA-256 of an email attached inside a `.msg` is of the rebuilt MIME copy, not of any original file. Ordinary attachments hash exactly as in the `.eml`.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
@@ -189,7 +190,7 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 Ideas, not promises; the order is roughly what would help most.
 
 - A hosted copy: the manual Pages workflow is ready, Pages just has to be switched on for the repository
-- Office remote-template detection and links inside Office documents and ZIP archives (inflate an entry with `DecompressionStream`, as the PDF object streams already are)
+- Links inside files in ZIP archives (Office documents already inflate their entries with `DecompressionStream`)
 - Reading links in encrypted PDFs that open without a password (needs MD5/RC4 for older PDFs and AES for newer ones)
 - QR codes in images and PDFs ("scan to sign in"), which needs an image decoder in the browser
 - Full Public Suffix List and a larger confusables table

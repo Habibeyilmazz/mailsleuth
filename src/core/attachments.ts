@@ -16,7 +16,8 @@ export type AttachmentIssueId =
   | 'pdf-launch'
   | 'pdf-javascript'
   | 'pdf-embedded-file'
-  | 'pdf-encrypted';
+  | 'pdf-encrypted'
+  | 'office-remote-content';
 
 export interface AttachmentIssue {
   id: AttachmentIssueId;
@@ -54,6 +55,10 @@ function startsWith(b: Uint8Array, sig: number[], offset = 0): boolean {
 export interface ZipEntry {
   name: string;
   encrypted: boolean;
+  /** Where the entry's local header starts, its compression method (0 stored, 8 deflate) and compressed size. */
+  offset: number;
+  method: number;
+  size: number;
 }
 
 /**
@@ -79,7 +84,13 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
     const nameLen = view.getUint16(p + 28, true);
     const extraLen = view.getUint16(p + 30, true);
     const commentLen = view.getUint16(p + 32, true);
-    entries.push({ name: decoder.decode(b.subarray(p + 46, p + 46 + nameLen)), encrypted: (flags & 1) === 1 });
+    entries.push({
+      name: decoder.decode(b.subarray(p + 46, p + 46 + nameLen)),
+      encrypted: (flags & 1) === 1,
+      offset: view.getUint32(p + 42, true),
+      method: view.getUint16(p + 10, true),
+      size: view.getUint32(p + 20, true),
+    });
     p += 46 + nameLen + extraLen + commentLen;
   }
   const listed = new Set(entries.map((e) => e.name));
@@ -90,7 +101,7 @@ export function readZipEntries(b: Uint8Array): ZipEntry[] {
     const name = decoder.decode(b.subarray(i + 30, i + 30 + nameLen));
     if (listed.has(name)) continue;
     listed.add(name);
-    entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1 });
+    entries.push({ name, encrypted: (view.getUint16(i + 6, true) & 1) === 1, offset: i, method: view.getUint16(i + 8, true), size: view.getUint32(i + 18, true) });
   }
   return entries;
 }

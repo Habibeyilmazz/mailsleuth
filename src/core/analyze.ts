@@ -7,6 +7,7 @@ import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, decodeH
 import { scanLanguage, type LanguageHit } from './language';
 import { extractUuencoded, getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
 import { isCompoundFile, readMsg, type MsgResult } from './msg';
+import { inspectOffice } from './office';
 import { inspectPdf } from './pdf';
 import { buildHops, type Hop } from './received';
 import { analyzeLink, extractHtmlLinks, extractTextLinks, isIgnorableHref, type LinkInfo } from './urls';
@@ -115,9 +116,10 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'pdf-launch': ['attachments', 'high', 'PDF tries to start a program', 'A Launch action asks the PDF reader to open a file or run a program. Ordinary documents do not need one; the reader asks first, and the attack counts on you clicking Allow.'],
   'pdf-javascript': ['attachments', 'medium', 'PDF contains JavaScript', 'Script in a PDF can open web pages, show fake prompts or attack bugs in the reader. Some real forms use it for calculations, so it is a warning sign, not proof.'],
   'pdf-embedded-file': ['attachments', 'medium', 'PDF carries a hidden file', 'A file embedded in the PDF opens from the reader\'s attachments panel and is not checked by most mail filters. It was not inspected here.'],
+  'office-remote-content': ['attachments', 'high', 'Office document loads content from the internet when opened', 'The document tells Word, Excel or PowerPoint to fetch a template or object from a web address as soon as it opens. Attackers use this to pull macros or an exploit (for example "Follina", CVE-2022-30190) into a file that looks clean and has no macro of its own.'],
   'pdf-encrypted': ['attachments', 'info', 'Encrypted PDF: its links could not be checked', 'Many ordinary PDFs are encrypted only to stop copying or printing and open without a password, but the encryption also hides their links from this check and from many mail filters. Hover over any link in the PDF before you click it.'],
   'uuencoded': ['attachments', 'low', 'File hidden in the message text (uuencoded)', 'An old way of sending files as lines of text inside the message. Mail apps such as Thunderbird still show it as an attachment, but some mail filters do not look for it, which is why malware senders use it. Today\'s mail apps never send files this way.'],
-  'attachment-links': ['attachments', 'info', 'Attachments contain links', 'PDF and HTML attachments can carry links of their own, which mail filters often check less closely than links in the email. "Open the attached document" lures put the real link there. They are listed under Links with the same checks as the email\'s own links.'],
+  'attachment-links': ['attachments', 'info', 'Attachments contain links', 'PDF, HTML and Office attachments can carry links of their own, which mail filters often check less closely than links in the email. "Open the attached document" lures put the real link there. They are listed under Links with the same checks as the email\'s own links.'],
   'onenote': ['attachments', 'medium', 'OneNote attachment', 'OneNote files have been used to hide malicious programs behind fake buttons.'],
   'type-mismatch': ['attachments', 'medium', 'Attachment content does not match its name', 'The file\'s actual content (by its internal structure) is a different type than its extension claims.'],
   'encrypted-archive': ['attachments', 'medium', 'Password-protected archive or document', 'Encryption stops mail scanners from looking inside, which is why attackers send the password in the email body.'],
@@ -417,6 +419,10 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
         const pdf = await inspectPdf(part.body);
         inspected.issues.push(...pdf.issues);
         for (const href of pdf.uris) attachmentLinks.push({ href, text: null, source: 'pdf', attachment: filename });
+      } else if (inspected.kind === 'ooxml') {
+        const office = await inspectOffice(part.body);
+        inspected.issues.push(...office.issues);
+        for (const href of office.uris) attachmentLinks.push({ href, text: null, source: 'office', attachment: filename });
       } else if (inspected.issues.some((i) => i.id === 'html-attachment')) {
         const html = decodeCharset(part.body, part.params['charset']);
         for (const l of extractHtmlLinks(html)) attachmentLinks.push({ ...l, source: 'html', attachment: filename });
