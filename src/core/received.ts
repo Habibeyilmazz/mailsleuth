@@ -79,7 +79,3 @@ export function buildHops(receivedHeaders: string[]): Hop[] {
   });
   return hops;
 }
-
-export function isPrivateIp(ip: string): boolean {
-  return /^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip) || /^(::1$|f[cd]|fe80)/i.test(ip);
-}
