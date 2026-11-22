@@ -32,5 +32,9 @@ jobs:
             node dist-cli/mailsleuth.js --compact "$f" | node -e 'const a=JSON.parse(require("fs").readFileSync(0,"utf8")); console.log(process.argv[1], a.score, a.level)' "$f"
           done
           node dist-cli/mailsleuth.js - < samples/03-newsletter-legit.eml | node -e 'const a=JSON.parse(require("fs").readFileSync(0,"utf8")); if (a.level !== "low") process.exit(1)'
+      - name: CLI refuses oversized input without reading it all
+        run: |
+          set +e; head -c 60000000 /dev/zero | node dist-cli/mailsleuth.js -; code=$?; set -e
+          test "$code" -eq 2
       - name: Built page forbids network access
         run: grep -q "connect-src 'none'" dist/index.html

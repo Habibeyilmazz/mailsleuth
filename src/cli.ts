@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { analyze, MAX_INPUT_BYTES, VERSION } from './core/analyze';
 import { bytesToBinary } from './core/encoding';
 
@@ -16,9 +16,15 @@ Options:
   --help      show this help
   --version   show the version`;
 
-async function readStdin(): Promise<Uint8Array> {
+/** Reads at most MAX_INPUT_BYTES, so /dev/zero or an endless pipe cannot exhaust memory; null when larger. */
+async function readLimited(stream: NodeJS.ReadableStream): Promise<Uint8Array | null> {
   const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  let total = 0;
+  for await (const chunk of stream) {
+    total += (chunk as Buffer).length;
+    if (total > MAX_INPUT_BYTES) return null;
+    chunks.push(chunk as Buffer);
+  }
   return new Uint8Array(Buffer.concat(chunks));
 }
 
@@ -39,14 +45,14 @@ async function main(argv: string[]): Promise<number> {
     console.error(HELP);
     return 2;
   }
-  let bytes: Uint8Array;
+  let bytes: Uint8Array | null;
   try {
-    bytes = !files.length || files[0] === '-' ? await readStdin() : new Uint8Array(readFileSync(files[0]));
+    bytes = await readLimited(!files.length || files[0] === '-' ? process.stdin : createReadStream(files[0]));
   } catch (e) {
     console.error(`mailsleuth: cannot read ${files[0]}: ${(e as Error).message}`);
     return 2;
   }
-  if (bytes.length > MAX_INPUT_BYTES) {
+  if (!bytes) {
     console.error(`mailsleuth: input is larger than ${MAX_INPUT_BYTES / 1024 / 1024} MB`);
     return 2;
   }
