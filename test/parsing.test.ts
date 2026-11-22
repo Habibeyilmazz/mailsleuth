@@ -4,7 +4,7 @@ import { inspectDomain } from '../src/core/domains';
 import { buildAuthReport, parseAuthResults } from '../src/core/auth';
 import { decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
 import { isAttachment, parseMessage, parseStructuredHeader, walkParts } from '../src/core/mime';
-import { buildHops, parseReceived } from '../src/core/received';
+import { buildHops, parseDate, parseReceived } from '../src/core/received';
 
 const dec = (b: Uint8Array) => new TextDecoder().decode(b);
 
@@ -197,6 +197,19 @@ describe('received', () => {
       'from a by b; Tue, 10 Nov 2026 09:00:00 +0000',
     ]);
     expect(hops.map((h) => [h.index, h.from, h.delaySeconds])).toEqual([[1, 'a', null], [2, 'b', 300]]);
+  });
+  it('reads RFC 5322 dates without depending on the browser or the time zone', () => {
+    const iso = (s: string) => parseDate(s)?.toISOString() ?? null;
+    expect(iso('Tue, 10 Nov 2026 09:00:00 +0100 CET')).toBe('2026-11-10T08:00:00.000Z'); // zone name after the offset, no parentheses
+    expect(iso('10 Nov 26 09:00 EDT')).toBe('2026-11-10T13:00:00.000Z');
+    expect(iso('Tue,10 Nov 2026 09:00:00 -0000')).toBe('2026-11-10T09:00:00.000Z');
+    expect(iso('Tue, 10 Nov 99 09:00:00 GMT')).toBe('1999-11-10T09:00:00.000Z');
+    // Date.parse reads a date without a zone as the viewer's local time: hop delays then differed per country.
+    expect(iso('Tue, 10 Nov 2026 09:00:00')).toBeNull();
+    expect(iso('Tue, 10 Nov 2026 09:00:00 CET')).toBeNull(); // not an RFC zone name; Date.parse support varies
+    expect(iso('Mon, 31 Feb 2026 10:00:00 +0000')).toBeNull(); // Date.parse rolled this over to 3 March
+    expect(iso('Sat, 21 Nov 2026 24:00:00 +0000')).toBeNull();
+    expect(iso('yesterday')).toBeNull();
   });
 });
 

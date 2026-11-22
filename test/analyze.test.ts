@@ -108,6 +108,12 @@ describe('end-to-end on the bundled samples', () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
   });
+  it('reads a file saved with a UTF-8 byte order mark', async () => {
+    // Windows editors add one; it made the first header "﻿From" and hid the sender.
+    const a = await analyze('\xEF\xBB\xBFFrom: "PayPal" <service@paypa1.example>\nSubject: hi\n\nhello');
+    expect(a.summary.from?.domain).toBe('paypa1.example');
+    expect(a.findings.map((f) => f.id)).toContain('lookalike-domain');
+  });
   it('keeps thousands of distinct link findings linear', async () => {
     const t = performance.now();
     const a = await analyze('Content-Type: text/html\n\n' + Array.from({ length: 40000 }, (_, i) => `<a href="data:text/html,${i}">x</a>`).join(''));

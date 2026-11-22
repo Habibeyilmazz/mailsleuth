@@ -314,6 +314,7 @@ function fromMsg(binary: string): MsgResult {
 }
 
 export async function analyze(binary: string, depth = 0): Promise<Analysis> {
+  binary = binary.replace(/^\xEF\xBB\xBF/, ''); // a UTF-8 byte order mark would become part of the first header's name
   const msg = isCompoundFile(binary) ? fromMsg(binary) : null;
   const root = parseMessage(msg ? msg.mime : binary);
   const h = root.headers;

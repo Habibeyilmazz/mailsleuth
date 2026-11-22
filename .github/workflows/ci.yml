@@ -24,6 +24,8 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
+        env:
+          TZ: Asia/Kolkata # runners default to UTC, which hides dates read as local time
       - name: Timing fuzz (hostile input must stay linear)
         run: npm run fuzz
         env:
