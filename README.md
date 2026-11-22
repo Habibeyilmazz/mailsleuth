@@ -20,7 +20,7 @@ npm ci
 npm run dev          # web app on http://localhost:4190
 ```
 
-Pick one of the synthetic samples on the start page, drop your own `.eml` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). Headers alone also work.
+Pick one of the synthetic samples on the start page, drop your own `.eml` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). Headers alone also work; body text alone (no headers) gets only the link and wording checks.
 
 More screenshots: [start page](docs/screenshots/home.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
@@ -47,7 +47,7 @@ npm run build        # web app in dist/, CLI in dist-cli/
 | Area | Checks |
 | --- | --- |
 | Sender | From vs Reply-To vs Return-Path domains; a different email address hidden in the display name; brand names in the display name on a non-brand domain; official-sounding names on free webmail |
-| Domains | Look-alikes of 43 bundled brands: homoglyphs from Cyrillic/Greek, digit swaps (paypa1), one-letter typos, brand names inside someone else's domain (paypal.com.evil.example); punycode (`xn--`) decoded and shown; domain endings often seen in abuse reports |
+| Domains | Look-alikes of 44 bundled brands: homoglyphs from Cyrillic/Greek, digit swaps (paypa1), one-letter typos, brand names inside someone else's domain (paypal.com.evil.example); punycode (`xn--`) decoded and shown; domain endings often seen in abuse reports |
 | Authentication | SPF, DKIM, DMARC, ARC and Microsoft `compauth` from `Authentication-Results`, each explained in plain English; DMARC alignment; only the topmost header is trusted, earlier ones are shown as unverifiable |
 | Delivery path | Every `Received` hop on a timeline with the delay since the previous hop; timestamps that go backwards are flagged |
 | Links | Text that shows one site while linking to another; Microsoft Safe Links, Proofpoint URL Defense (v2/v3), Google and Facebook redirects unwrapped before checking; shorteners; bare and disguised IP addresses (`http://3325256727/`); `user@host` tricks; `data:` and `javascript:` links; open redirects; direct links to risky file types |
