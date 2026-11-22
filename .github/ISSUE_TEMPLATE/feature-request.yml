@@ -1,0 +1,16 @@
+name: Feature request
+description: A check, input format or improvement you would like.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation and what is missing today. Concrete examples help most.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: mailsleuth makes no network requests by design; ideas that need one should say why a link the user clicks would not do.

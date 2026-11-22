@@ -1,0 +1,45 @@
+name: Missed or wrong finding
+description: mailsleuth missed a warning sign, or flagged legitimate mail.
+labels: [detection]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste a real email.** Rebuild the trick in a synthetic message: `.example` domains, documentation IPs (192.0.2.x, 198.51.100.x, 203.0.113.x), made-up people, placeholder attachments. See CONTRIBUTING.md.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What went wrong
+      options:
+        - A warning sign was missed (false negative)
+        - Legitimate mail was flagged (false positive)
+        - A finding's explanation is wrong or confusing
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Synthetic message (or the relevant headers / HTML)
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: What mailsleuth reported
+      description: Score, level and the finding titles; the CLI's JSON or "Copy JSON report" output is ideal.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and why
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: The message above is synthetic and contains no real names, addresses, IPs or host names.
+          required: true

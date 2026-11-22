@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem in mailsleuth itself
+    url: https://github.com/Habibeyilmazz/mailsleuth/blob/main/SECURITY.md
+    about: Read this first. Do not post exploit details in a public issue.
