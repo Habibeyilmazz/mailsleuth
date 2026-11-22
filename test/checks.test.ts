@@ -90,6 +90,16 @@ describe('links', () => {
     expect(linkIssues('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.paypal.com%2F', 'www.paypal.com')).toEqual([]);
     expect(linkIssues('https://evil.example/', 'Click here')).toEqual([]);
   });
+  it('reads a file name or "Node.js" in link text as a name, not as a site', () => {
+    // A shared-file notification links the file name to the file host; that is not a lie about the destination.
+    for (const text of ['Q3-Report.pdf', 'Budget.xlsx', 'Node.js', 'photo.JPG', 'notes.txt']) {
+      expect(linkIssues('https://contoso.sharepoint.example/s/abc', text)).toEqual([]);
+    }
+    // Endings that are real top-level domains still name a site.
+    expect(linkIssues('https://evil.example/', 'paypal.com')).toContain('text-mismatch');
+    expect(linkIssues('https://evil.example/', 'update.zip')).toContain('text-mismatch');
+    expect(linkIssues('https://evil.example/', 'https://paypal.pdf/')).toContain('text-mismatch'); // with a scheme it is a URL
+  });
   it('flags IP literals, including disguised decimal form', () => {
     const l = analyzeLink('http://3325256727/x', null, 'html');
     expect(l.host).toBe('198.51.100.23');

@@ -83,9 +83,14 @@ function redirectParam(url: URL): string | null {
   return null;
 }
 
+// File extensions that are not top-level domains: link text "Report.pdf" or "Node.js" names a file or a project, not a site.
+// .zip and .mov are left out on purpose: they are real TLDs.
+const FILE_EXT = /\.(pdf|docx?|docm|xlsx?|xlsm|pptx?|pptm|txt|csv|rtf|od[tsp]|png|jpe?g|gif|bmp|tiff?|webp|heic|wav|js|ts|json|xml|html?|eml|msg|ics|vcf|exe|dll|bat|vbs)$/i;
+
 /** Hostname-ish token in visible link text, e.g. "www.paypal.com" or "https://paypal.com/login". */
 function hostInText(text: string): string | null {
   const m = /^(?:https?:\/\/)?((?:[a-z0-9¡-￿-]+\.)+[a-z¡-￿]{2,})(?:[:/?#]\S*)?$/i.exec(text.trim());
+  if (m && m[0] === m[1] && FILE_EXT.test(m[1])) return null; // bare "name.ext"; with a scheme or path it is a URL
   // Through URL so a Unicode host in the text compares equal to its xn-- form in the href.
   return m ? (tryUrl('http://' + m[1])?.hostname ?? normalizeDomain(m[1])) : null;
 }
