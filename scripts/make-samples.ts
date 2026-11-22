@@ -3,6 +3,7 @@
 // and attachments contain only harmless placeholder text. Nothing here is real mail.
 import { writeFileSync } from 'node:fs';
 import { compressRtf, makeMsg } from './msg.ts';
+import { makePdf } from './pdf.ts';
 import { makeZip } from './zip.ts';
 
 const b64 = (data: string | Uint8Array) =>
@@ -241,6 +242,55 @@ Content-Disposition: attachment; filename="Your account has been limited.eml"
 
 ${samples['01-paypal-lookalike.eml']}
 --fwd--
+`;
+
+// 08: a calm email from a real-looking (perhaps compromised) partner that passes every check. The only
+// link is inside the PDF, in a compressed object stream as PDF 1.5+ writers store it, so the email itself has none.
+const pdfText = 'BT /F1 18 Tf 72 700 Td (SYNTHETIC SAMPLE - Q4 rate sheet) Tj 0 -40 Td /F1 14 Tf (This document is protected. Click here to view the secure copy.) Tj ET';
+const ratePdf = makePdf(
+  [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> /Annots [6 0 R] >>',
+    `<< /Length ${pdfText.length} >>\nstream\n${pdfText}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ],
+  ['<< /Type /Annot /Subtype /Link /Rect [72 640 520 670] /Border [0 0 0] /A << /S /URI /URI (https://rnicrosoft-online.example/sharepoint/q4-rate-sheet?id=4471) >> >>'],
+);
+samples['08-pdf-link-lure.eml'] = `Return-Path: <jordan.lee@harborview-logistics.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 3C9E10; Thu, 19 Nov 2026 10:41:07 +0000
+Received: from mail.harborview-logistics.example (mail.harborview-logistics.example [198.51.100.61])
+ by mx1.example.net with ESMTPS id 5d2a7f; Thu, 19 Nov 2026 10:41:05 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=jordan.lee@harborview-logistics.example;
+ dkim=pass header.d=harborview-logistics.example;
+ dmarc=pass header.from=harborview-logistics.example
+From: "Jordan Lee" <jordan.lee@harborview-logistics.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: Q4 rate sheet
+Date: Thu, 19 Nov 2026 10:40:58 +0000
+Message-ID: <synthetic-0008@harborview-logistics.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="rs"
+
+--rs
+Content-Type: text/plain; charset=utf-8
+
+Hi Alex,
+
+Attached is the updated Q4 rate sheet we discussed on Tuesday.
+Let me know if anything looks off.
+
+Thanks,
+Jordan
+--rs
+Content-Type: application/pdf; name="Q4_Rate_Sheet.pdf"
+Content-Disposition: attachment; filename="Q4_Rate_Sheet.pdf"
+Content-Transfer-Encoding: base64
+
+${b64(ratePdf)}
+--rs--
 `;
 
 for (const [name, body] of Object.entries(samples)) writeFileSync(new URL(`../samples/${name}`, import.meta.url), body);

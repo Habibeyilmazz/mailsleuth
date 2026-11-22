@@ -3,10 +3,11 @@ import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from '
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, readable, sameOrg, type DomainIssue } from './domains';
-import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex, textToBinary } from './encoding';
+import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, decodeHtmlEntities, htmlToText, sha256Hex, textToBinary } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
 import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
 import { isCompoundFile, readMsg, type MsgResult } from './msg';
+import { inspectPdf } from './pdf';
 import { buildHops, type Hop } from './received';
 import { analyzeLink, extractHtmlLinks, extractTextLinks, isIgnorableHref, type LinkInfo } from './urls';
 
@@ -109,6 +110,11 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'office-macro': ['attachments', 'high', 'Office document contains macros', 'Macros are small programs inside the document. "Enable content" lets them run.'],
   'archive-risky-content': ['attachments', 'high', 'Archive contains risky files', 'The attached archive holds programs, scripts, disk images or HTML files.'],
   'html-attachment': ['attachments', 'medium', 'HTML attachment', 'HTML files open in your browser and can show a convincing login page that sends your password elsewhere.'],
+  'pdf-launch': ['attachments', 'high', 'PDF tries to start a program', 'A Launch action asks the PDF reader to open a file or run a program. Ordinary documents do not need one; the reader asks first, and the attack counts on you clicking Allow.'],
+  'pdf-javascript': ['attachments', 'medium', 'PDF contains JavaScript', 'Script in a PDF can open web pages, show fake prompts or attack bugs in the reader. Some real forms use it for calculations, so it is a warning sign, not proof.'],
+  'pdf-embedded-file': ['attachments', 'medium', 'PDF carries a hidden file', 'A file embedded in the PDF opens from the reader\'s attachments panel and is not checked by most mail filters. It was not inspected here.'],
+  'pdf-encrypted': ['attachments', 'info', 'Encrypted PDF: its links could not be checked', 'Many ordinary PDFs are encrypted only to stop copying or printing and open without a password, but the encryption also hides their links from this check and from many mail filters. Hover over any link in the PDF before you click it.'],
+  'attachment-links': ['attachments', 'info', 'Attachments contain links', 'PDF and HTML attachments can carry links of their own, which mail filters often check less closely than links in the email. "Open the attached document" lures put the real link there. They are listed under Links with the same checks as the email\'s own links.'],
   'onenote': ['attachments', 'medium', 'OneNote attachment', 'OneNote files have been used to hide malicious programs behind fake buttons.'],
   'type-mismatch': ['attachments', 'medium', 'Attachment content does not match its name', 'The file\'s actual content (by its internal structure) is a different type than its extension claims.'],
   'encrypted-archive': ['attachments', 'medium', 'Password-protected archive or document', 'Encryption stops mail scanners from looking inside, which is why attackers send the password in the email body.'],
@@ -227,10 +233,14 @@ function authChecks(f: Findings, auth: AuthReport) {
 }
 
 function linkChecks(f: Findings, links: LinkInfo[]) {
+  const perAttachment = new Map<string, number>();
   for (const l of links) {
-    for (const i of l.issues) f.add(i.id, i.detail);
-    domainFindings(f, l.domainIssues, 'Link');
+    const where = l.attachment ? `in ${l.attachment}: ` : '';
+    for (const i of l.issues) f.add(i.id, where + i.detail);
+    domainFindings(f, l.domainIssues, l.attachment ? `Link in ${l.attachment}` : 'Link');
+    if (l.attachment) perAttachment.set(l.attachment, (perAttachment.get(l.attachment) ?? 0) + 1);
   }
+  for (const [name, n] of perAttachment) f.add('attachment-links', `${name}: ${n} link${n === 1 ? '' : 's'}`);
 }
 
 function attachmentChecks(f: Findings, atts: AttachmentInfo[]) {
@@ -269,7 +279,7 @@ function nextSteps(level: Analysis['level'], f: Findings, attachments: Attachmen
   if (links.some((l) => l.issues.length || l.domainIssues.length)) {
     steps.push('If you need to visit the site, type the address you already know into your browser or use the official app instead of the link.');
   }
-  if (attachments.some((a) => a.issues.length)) {
+  if (attachments.some((a) => a.issues.some((i) => i.id !== 'pdf-encrypted'))) {
     steps.push('Do not open the attachment. If you already did, disconnect the device from the network and tell your IT or security team right away.');
   }
   if (any('language-money', 'reply-to-mismatch', 'freemail-official')) {
@@ -357,7 +367,9 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   });
 
   const texts: string[] = [];
-  const rawLinks: { href: string; text: string | null; source: LinkInfo['source'] }[] = [];
+  type RawLink = { href: string; text: string | null; source: LinkInfo['source']; attachment?: string };
+  const rawLinks: RawLink[] = [];
+  const attachmentLinks: RawLink[] = []; // listed after the email's own links, so a link in both keeps its body entry
   const attachments: AttachmentInfo[] = [];
   const structure: Analysis['structure'] = [];
   const depthOf = new Map<MimePart, number>([[root, 0]]);
@@ -373,6 +385,18 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
       // An attached Outlook .msg (common in user reports) is analyzed like an attached .eml; other Office files are not emails.
       const nested = depth < MAX_NESTING && (isEmail || isCompoundFile(bytesToBinary(part.body.subarray(0, 8))));
       const inspected = inspectAttachment(filename, part.body);
+      if (inspected.kind === 'pdf') {
+        const pdf = await inspectPdf(part.body);
+        inspected.issues.push(...pdf.issues);
+        for (const href of pdf.uris) attachmentLinks.push({ href, text: null, source: 'pdf', attachment: filename });
+      } else if (inspected.issues.some((i) => i.id === 'html-attachment')) {
+        const html = decodeCharset(part.body, part.params['charset']);
+        for (const l of extractHtmlLinks(html)) attachmentLinks.push({ ...l, source: 'html', attachment: filename });
+        // Bare URLs anywhere in the file: script redirects and <meta> refreshes in HTML phishing pages. Not XML namespaces.
+        for (const href of extractTextLinks(decodeHtmlEntities(html))) {
+          if (!href.startsWith('http://www.w3.org/')) attachmentLinks.push({ href, text: null, source: 'text', attachment: filename });
+        }
+      }
       attachments.push({
         filename,
         contentType: part.contentType,
@@ -398,11 +422,16 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   // One entry per distinct (URL, visible text): the same URL behind "Home" and behind
   // "paypal.com" must both be checked. Bare URLs from the plain-text part only add new URLs.
   const seen = new Map<string, LinkInfo>();
-  const htmlHrefs = new Set(rawLinks.filter((l) => l.source === 'html').map((l) => l.href));
-  for (const l of rawLinks) {
+  const allLinks = [...rawLinks, ...attachmentLinks];
+  // A bare URL only adds to the <a> links of the same file (the email itself or one attachment).
+  const where = (l: RawLink) => `${l.attachment ?? ''}\0${l.href}`;
+  const htmlHrefs = new Set(allLinks.filter((l) => l.source === 'html').map(where));
+  for (const l of allLinks) {
     const key = `${l.href}\0${l.text ?? ''}`;
-    if (isIgnorableHref(l.href) || seen.has(key) || (l.source === 'text' && htmlHrefs.has(l.href))) continue;
-    seen.set(key, analyzeLink(l.href, l.text, l.source, from?.domain));
+    if (isIgnorableHref(l.href) || seen.has(key) || (l.source === 'text' && htmlHrefs.has(where(l)))) continue;
+    const info = analyzeLink(l.href, l.text, l.source, from?.domain);
+    info.attachment = l.attachment ?? null;
+    seen.set(key, info);
   }
   const links = [...seen.values()];
   const bodyText = texts.join('\n\n').trim();

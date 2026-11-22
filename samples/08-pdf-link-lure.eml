@@ -1,0 +1,51 @@
+Return-Path: <jordan.lee@harborview-logistics.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 3C9E10; Thu, 19 Nov 2026 10:41:07 +0000
+Received: from mail.harborview-logistics.example (mail.harborview-logistics.example [198.51.100.61])
+ by mx1.example.net with ESMTPS id 5d2a7f; Thu, 19 Nov 2026 10:41:05 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=jordan.lee@harborview-logistics.example;
+ dkim=pass header.d=harborview-logistics.example;
+ dmarc=pass header.from=harborview-logistics.example
+From: "Jordan Lee" <jordan.lee@harborview-logistics.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: Q4 rate sheet
+Date: Thu, 19 Nov 2026 10:40:58 +0000
+Message-ID: <synthetic-0008@harborview-logistics.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="rs"
+
+--rs
+Content-Type: text/plain; charset=utf-8
+
+Hi Alex,
+
+Attached is the updated Q4 rate sheet we discussed on Tuesday.
+Let me know if anything looks off.
+
+Thanks,
+Jordan
+--rs
+Content-Type: application/pdf; name="Q4_Rate_Sheet.pdf"
+Content-Disposition: attachment; filename="Q4_Rate_Sheet.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjcKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBS
+ID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAx
+ID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94
+IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDQgMCBSIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0Yx
+IDUgMCBSID4+ID4+IC9Bbm5vdHMgWzYgMCBSXSA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3Ro
+IDE1MSA+PgpzdHJlYW0KQlQgL0YxIDE4IFRmIDcyIDcwMCBUZCAoU1lOVEhFVElDIFNBTVBMRSAt
+IFE0IHJhdGUgc2hlZXQpIFRqIDAgLTQwIFRkIC9GMSAxNCBUZiAoVGhpcyBkb2N1bWVudCBpcyBw
+cm90ZWN0ZWQuIENsaWNrIGhlcmUgdG8gdmlldyB0aGUgc2VjdXJlIGNvcHkuKSBUaiBFVAplbmRz
+dHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNl
+Rm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago3IDAgb2JqCjw8IC9UeXBlIC9PYmpTdG0gL04gMSAv
+Rmlyc3QgNCAvRmlsdGVyIC9GbGF0ZURlY29kZSAvTGVuZ3RoIDE1MCA+PgpzdHJlYW0KeJwlzLEO
+gjAURuHdp/hHHfBWUiExWIObiRPoRBwQrqERWyzXRN/eiMtJvuUkUMgy0OkzMCh3zguofF1l8tG6
+O6jgRlClMRKtsI4VklRdQHsfWg6oFBR+zqdRCToXh3/mncgwboiCs03wo79J5F1vHS/5XT+Gnmns
+6sCDt07oqaNQC0djxyw72261TlcLGANjZl8MajJrCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDYK
+MDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE5IDAwMDAwIG4gCjAwMDAwMDAwNjggMDAwMDAg
+biAKMDAwMDAwMDEyNSAwMDAwMCBuIAowMDAwMDAwMjY3IDAwMDAwIG4gCjAwMDAwMDA0NjkgMDAw
+MDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo3ODkKJSVF
+T0YK
+--rs--

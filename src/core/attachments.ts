@@ -12,7 +12,11 @@ export type AttachmentIssueId =
   | 'type-mismatch'
   | 'encrypted-archive'
   | 'archive-risky-content'
-  | 'onenote';
+  | 'onenote'
+  | 'pdf-launch'
+  | 'pdf-javascript'
+  | 'pdf-embedded-file'
+  | 'pdf-encrypted';
 
 export interface AttachmentIssue {
   id: AttachmentIssueId;

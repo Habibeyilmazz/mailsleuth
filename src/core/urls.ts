@@ -24,7 +24,10 @@ export interface LinkInfo {
   href: string;
   /** Visible link text (HTML) or null for bare URLs in plain text. */
   text: string | null;
-  source: 'html' | 'text';
+  /** pdf: a URI action inside a PDF attachment (no visible text is read). */
+  source: 'html' | 'text' | 'pdf';
+  /** File name of the attachment the link was found in, or null for the email's own text. */
+  attachment: string | null;
   /** Destination after unwrapping known redirect wrappers (Safe Links, Proofpoint, Google...). */
   finalUrl: string;
   /** Hostname of finalUrl in its xn-- form, or null for data:, javascript: and unparsable links. */
@@ -103,7 +106,7 @@ function hostInText(text: string): string | null {
 
 /** senderDomain: the From domain, so a newsletter's own site behind its mailing service's click tracking is not called a mismatch. */
 export function analyzeLink(href: string, text: string | null, source: LinkInfo['source'], senderDomain = ''): LinkInfo {
-  const info: LinkInfo = { href, text, source, finalUrl: href, host: null, unwrappedVia: [], issues: [], domainIssues: [] };
+  const info: LinkInfo = { href, text, source, attachment: null, finalUrl: href, host: null, unwrappedVia: [], issues: [], domainIssues: [] };
   let url = tryUrl(href);
   for (let i = 0; url && i < 5; i++) {
     const step = unwrapOnce(url);

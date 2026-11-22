@@ -7,7 +7,8 @@ import { toMarkdown } from '../src/core/report';
 const VOCAB = ['(', ')', '<', '>', '"', "'", '=', ';', ':', ',', '.', '@', '/', '\\', ' ', '\t', '\n', '\r', '\r\n', '-', '_', '*', '?', '&', '#', '%', 'a', 'x', '1', '[', ']', 'X', '!',
   '<a ', 'href=', '</a>', '<!--', '-->', '<script', '<base ', '=?', '?=', 'B?', 'Q?', 'http://', 'https://', '//', 'www.', 'xn--', 'from ', ' by ', ' with ', 'spf=', 'dkim=', 'pass', '.pdf', '.exe',
   '&#', '&amp;', '&shy;', '\n--b', '--', 'boundary=b', 'Content-Type: ', 'multipart/mixed; ', 'text/html', 'base64', 'filename*0*=', "utf-8''", '%41', 'paypal', 'urgent ', 'verify your ',
-  'account ', 'i=1', 'cv=pass', 'smtp.mailfrom=', 'header.d=', '127.1', 'data:', 'bit.ly/'];
+  'account ', 'i=1', 'cv=pass', 'smtp.mailfrom=', 'header.d=', '127.1', 'data:', 'bit.ly/',
+  '/URI', '/JS', '#4', 'stream\n', 'endstream', ' obj', '<<', '>>', '/Type/ObjStm', '/FlateDecode', '\\0'];
 const HEADERS = ['From', 'Reply-To', 'Return-Path', 'Sender', 'To', 'Subject', 'Date', 'Received', 'Authentication-Results', 'ARC-Authentication-Results', 'ARC-Seal', 'Content-Type', 'Content-Disposition', 'Content-Transfer-Encoding', 'Received-SPF'];
 const SIZE = 60000;
 const LIMIT_MS = 500; // linear code takes under 40 ms; every quadratic bug found so far took 1-20 s
@@ -17,6 +18,9 @@ const place = (where: number, header: string, blob: string) =>
     `${header}: ${blob}\nFrom: a@b.example\nReceived: from x by mx.b.example; Tue, 10 Nov 2026 09:00:00 +0000\n\nhi`,
     `From: a@b.example\nContent-Type: text/html\n\n${blob}`,
     `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\n${header}: ${blob.replace(/\n/g, ' ')}\n\n${blob}\n--b--\n`,
+    // Attachments whose content is scanned for links: a PDF and an HTML page.
+    `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.pdf\n\n%PDF-1.7\n${blob}\n--b--\n`,
+    `From: a@b.example\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Disposition: attachment; filename=a.html\n\n${blob}\n--b--\n`,
   ][where];
 
 describe.runIf(process.env.FUZZ)('timing fuzz', () => {
@@ -33,11 +37,11 @@ describe.runIf(process.env.FUZZ)('timing fuzz', () => {
       if (ms > LIMIT_MS) slow.push(`${ms.toFixed(0)} ms: ${header} (${where}) ${JSON.stringify(blob.slice(0, 60))}`);
     };
     // Every single fragment repeated in every header and body position: the shape of every bug found so far.
-    for (const header of HEADERS) for (let where = 0; where < 3; where++) for (const motif of VOCAB) await check(header, where, motif, pick(VOCAB));
+    for (const header of HEADERS) for (let where = 0; where < 5; where++) for (const motif of VOCAB) await check(header, where, motif, pick(VOCAB));
     // Then random mixes of up to four fragments.
     for (let i = 0; i < Number(process.env.FUZZ_CASES ?? 10000); i++) {
       const motif = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => pick(VOCAB)).join('');
-      await check(pick(HEADERS), Math.floor(rnd() * 3), motif, rnd() < 0.5 ? pick(VOCAB) + pick(VOCAB) : '');
+      await check(pick(HEADERS), Math.floor(rnd() * 5), motif, rnd() < 0.5 ? pick(VOCAB) + pick(VOCAB) : '');
     }
     expect(slow).toEqual([]);
   }, 900_000);
