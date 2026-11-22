@@ -1,11 +1,11 @@
 // Drives the built app in Chromium: runs every sample, fails on console errors or on any
 // request that leaves localhost, and saves screenshots.
-// Usage: npm run build && node scripts/screenshots.mjs [outDir]   (needs Playwright's Chromium)
+// Usage: npm run build && npm run screenshots -- [outDir]   (needs Playwright's Chromium)
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 
-const outDir = process.argv[2] ?? 'docs/screenshots';
+const outDir = process.argv[2] ?? 'test-results/screenshots';
 mkdirSync(outDir, { recursive: true });
 
 const server = await preview({ preview: { port: 4191, strictPort: true } });
@@ -38,6 +38,7 @@ try {
     const level = await page.textContent('#verdict-h');
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
     await page.screenshot({ path: `${outDir}/${file.replace('.eml', '')}.png`, fullPage: true });
+    if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
     await page.click('text=Analyze another email');
   }
 
