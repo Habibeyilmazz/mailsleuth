@@ -2,7 +2,7 @@ import { findEmailsInText, parseAddressList, parseReturnPath, type Address } fro
 import { inspectAttachment, KIND_LABEL, sniffKind, type AttachmentIssue } from './attachments';
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
-import { brandOwning, inspectDomain, normalizeDomain, readableName, sameOrg, type DomainIssue } from './domains';
+import { brandOwning, inspectDomain, normalizeDomain, readable, sameOrg, type DomainIssue } from './domains';
 import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex, textToBinary } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
 import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
@@ -160,7 +160,7 @@ function senderChecks(f: Findings, s: Analysis['summary'], dmarcPass: boolean) {
   const from = s.from;
   if (!from?.domain) return;
   const fromOwner = brandOwning(from.domain);
-  const name = readableName(from.name);
+  const name = readable(from.name).toLowerCase();
 
   for (const email of findEmailsInText(name)) {
     if (email.toLowerCase() !== from.address.toLowerCase()) {

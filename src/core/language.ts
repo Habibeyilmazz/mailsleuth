@@ -1,4 +1,6 @@
-// Social-engineering phrases. English only for now; each match is shown to the user verbatim.
+import { readable } from './domains';
+
+// Social-engineering phrases. English only for now; each match is shown to the user as the reader would see it.
 
 export type LanguageCategory = 'urgency' | 'credentials' | 'money' | 'threat';
 
@@ -43,7 +45,8 @@ export interface LanguageHit {
   phrase: string;
 }
 
-export function scanLanguage(text: string): LanguageHit[] {
+export function scanLanguage(raw: string): LanguageHit[] {
+  const text = readable(raw); // "ver\u00adify", "vеrify" with a Cyrillic е: filter evasions the reader never sees
   const hits: LanguageHit[] = [];
   const seen = new Set<string>();
   for (const [category, patterns] of Object.entries(PATTERNS) as [LanguageCategory, RegExp[]][]) {

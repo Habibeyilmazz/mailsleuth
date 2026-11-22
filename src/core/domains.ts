@@ -36,11 +36,14 @@ const INVISIBLE = /[\u00ad\u034f\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\uf
 const NAME_I: Record<string, string> = { і: 'i', ї: 'i', ı: 'i', ι: 'i' }; // look like "i" in a name, unlike in a domain skeleton
 
 /**
- * A display name as the reader sees it, lower-cased: invisible characters dropped, full-width letters (NFKC)
- * and Cyrillic/Greek look-alikes folded to Latin. ASCII is left alone, so "Office 365" stays as it is.
+ * Text as the reader sees it: invisible characters dropped, full-width letters (NFKC) and Cyrillic/Greek
+ * look-alikes folded to Latin. ASCII is left alone, so "Office 365" stays as it is.
  */
-export function readableName(name: string): string {
-  return Array.from(name.normalize('NFKC').replace(INVISIBLE, '').toLowerCase(), (c) => (c > '~' ? (NAME_I[c] ?? CONFUSABLE[c] ?? c) : c)).join('');
+export function readable(s: string): string {
+  return s
+    .normalize('NFKC')
+    .replace(INVISIBLE, '')
+    .replace(/[^\x00-\x7e]/g, (c) => NAME_I[c.toLowerCase()] ?? CONFUSABLE[c.toLowerCase()] ?? c);
 }
 
 export function skeleton(label: string): string {

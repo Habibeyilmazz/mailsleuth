@@ -109,6 +109,8 @@ export function htmlToText(html: string): string {
       .replace(/<(script|style|head)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, ' ')
       .replace(/<!--[\s\S]*?(?:-->|$)/g, ' ')
       .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)\b[^>]*(?:>|$)/gi, '\n')
+      // Inline tags do not break words in a browser: "ver<span>ify</span>" reads "verify".
+      .replace(/<\/?(span|b|i|u|em|strong|font|small|big|sub|sup|s|strike|mark|abbr|a)\b[^>]*(?:>|$)/gi, '')
       // Like browsers, "<" starts a tag only before a letter, "/", "!" or "?"; "price < 5" stays text.
       .replace(/<[a-z/!?][^>]*(?:>|$)/gi, ' '),
   )

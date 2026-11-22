@@ -31,6 +31,10 @@ describe('encoding', () => {
     expect(htmlToText('a &constructor; b &colon;')).toBe('a &constructor; b :');
     expect(htmlToText('<p>price < 5, verify your account</p>')).toBe('price < 5, verify your account');
   });
+  it('does not split words at inline tags', () => {
+    expect(htmlToText('<p>Please ver<span>ify</span> your <b>acc</b><font color=red>ount</font></p>')).toBe('Please verify your account');
+    expect(htmlToText('<table><tr><td>Name</td><td>Value</td></tr></table>')).toBe('Name Value');
+  });
   it('turns HTML into visible text without script/style', () => {
     expect(htmlToText('<style>x{}</style><p>Hi&nbsp;there</p><script>evil()</script><p>&amp; bye</p>')).toBe('Hi there\n& bye');
   });

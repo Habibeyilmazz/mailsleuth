@@ -194,6 +194,12 @@ describe('language', () => {
     expect(hits.map((h) => h.category)).toEqual(['urgency', 'urgency', 'credentials', 'money', 'threat']);
     expect(hits.map((h) => h.phrase)).toContain('verify your account');
   });
+  it('reads phrases split by invisible characters or written with look-alike letters', () => {
+    // A known filter evasion; the reader sees "verify your account" in each case.
+    for (const text of ['Please ver\u00adify your acc\u200bount', 'Please \uff56\uff45\uff52\uff49\uff46\uff59 y\u043eur acc\u043eunt', 'V\u0415RIFY Y\u041eUR ACCOUNT']) {
+      expect(scanLanguage(text).map((h) => h.category), text).toContain('credentials');
+    }
+  });
   it('finds nothing in ordinary text', () => {
     expect(scanLanguage('Here are the meeting notes from Tuesday. See you next week.')).toEqual([]);
   });
