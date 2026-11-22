@@ -1,5 +1,7 @@
 /* The extension page reuses the web app's style.css; these rules fit it into a 480 px panel or a popup. */
-.popup { width: 440px; min-height: 480px; }
+.popup { width: 440px; }
+/* keeps headings and keyboard focus clear of the sticky header (WCAG 2.4.11) */
+html { scroll-padding-top: 6.5rem; }
 .ext .masthead { position: sticky; top: 0; z-index: 2; padding: .7rem 16px; gap: .4rem .9rem; background: var(--bg); border-bottom: 1px solid var(--line); }
 .ext .brand { font-size: 1.1rem; }
 .ext .offline { margin-left: 0; font-size: .82rem; flex-basis: 100%; order: 3; }

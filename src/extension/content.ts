@@ -64,7 +64,7 @@ function addButtons() {
     if (!query) continue;
     const bar = document.createElement('div');
     bar.setAttribute(MARK, '');
-    bar.style.cssText = 'display:flex;justify-content:flex-end;padding:6px 0 2px';
+    bar.style.cssText = 'display:flex;padding:4px 0 8px';
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = 'Check with mailsleuth';
