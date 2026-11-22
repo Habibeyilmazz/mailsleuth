@@ -179,9 +179,15 @@ export function parsePart(binary: string, depth = 0, defaultType = 'text/plain')
   return part;
 }
 
+const MESSAGE_HEADER = /^(from|to|cc|subject|date|received|message-id|return-path|reply-to|sender|mime-version|content-type|authentication-results|delivered-to|dkim-signature)$/i;
+
 export function parseMessage(binary: string): MimePart {
   // Tolerate a leading mbox "From " line and stray blank lines before headers.
-  return parsePart(binary.replace(/^(?:\s*\r?\n)+/, ''));
+  const trimmed = binary.replace(/^(?:\s*\r?\n)+/, '');
+  // Pasted body text without any email header: analyze all of it as the message text
+  // instead of reading its first paragraph as (garbage) headers and dropping it.
+  const hasHeaders = parseHeaders(splitHeaderBlock(trimmed).headerBlock).some((h) => MESSAGE_HEADER.test(h.name));
+  return parsePart(hasHeaders ? trimmed : '\n' + trimmed);
 }
 
 export function* walkParts(part: MimePart): Generator<MimePart> {

@@ -87,6 +87,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'dmarc-none': ['authentication', 'low', 'The From domain has no DMARC protection', 'Without DMARC, anyone can send mail that looks like it comes from this domain and receivers have no policy to block it.'],
   'arc-fail': ['authentication', 'low', 'Broken forwarding chain (ARC)', 'An intermediary\'s record of earlier checks does not validate.'],
   'auth-unverified': ['authentication', 'info', 'Authentication results cannot be tied to a receiving server', 'The pass/fail results below were not written by a server that appears in the delivery path, so anyone could have typed them. Passing results are not counted in the email\'s favour.'],
+  'no-headers': ['sender', 'info', 'No email headers found: only the text and links were checked', 'Sender, authentication and delivery-path checks need the full message source (Gmail: Show original; Outlook: View message source) or the saved .eml file.'],
   'no-auth-results': ['authentication', 'info', 'No authentication results found', 'There is no Authentication-Results header, so SPF/DKIM/DMARC could not be reviewed. Paste the full headers (not just the body) to see them.'],
   'text-mismatch': ['links', 'high', 'Link text shows one site but goes to another', 'The visible text of a link can say anything. Here it names a different site than where the link really leads.'],
   'userinfo': ['links', 'high', 'Link uses the "@" trick', 'In web addresses everything before "@" is a username that browsers ignore, so a trusted name there is pure decoration.'],
@@ -370,7 +371,8 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const f = new Findings();
   const dmarcPass = resultFor(auth, 'dmarc')?.result === 'pass';
   senderChecks(f, summary, dmarcPass);
-  authChecks(f, auth);
+  if (h.length) authChecks(f, auth);
+  else f.add('no-headers', '');
   linkChecks(f, links);
   attachmentChecks(f, attachments);
   nestedChecks(f, attachments);
@@ -406,5 +408,3 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     bodyText,
   };
 }
-
-/** Raw bytes of a message/rfc822 attachment, for analyzing a forwarded email on its own. */

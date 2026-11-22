@@ -77,6 +77,15 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings.map((f) => f.id)).toContain('auth-unverified');
   });
 
+  it('analyzes pasted body text that has no headers instead of dropping it', async () => {
+    const a = await analyze('Dear customer,\nPlease verify your account within 24 hours: https://paypa1-login.example/x\n\nThanks');
+    expect(a.headers).toEqual([]);
+    expect(a.bodyText).toContain('Dear customer');
+    expect(a.links.map((l) => l.host)).toEqual(['paypa1-login.example']);
+    expect(a.findings.map((f) => f.id)).toEqual(expect.arrayContaining(['no-headers', 'lookalike-domain', 'language-credentials']));
+    expect(a.findings.map((f) => f.id)).not.toContain('no-auth-results');
+  });
+
   it('handles empty and garbage input without throwing', async () => {
     expect((await analyze('')).score).toBe(0);
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
