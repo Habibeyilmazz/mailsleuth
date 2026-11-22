@@ -241,6 +241,7 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 .lookup { font-size: .85rem; padding: .35rem .7rem; border: 1px solid var(--field-line); border-radius: 10px; text-decoration: none; }
 .lookup:hover { border-color: var(--action); }
 .hash { font-size: .78rem; color: var(--muted); margin-top: .3rem; }
+span.hash { display: block; margin-top: 0; } /* hash of a file in a ZIP, under its name */
 .att-name { overflow-wrap: anywhere; }
 
 .headers { display: grid; grid-template-columns: fit-content(16rem) minmax(0, 1fr); gap: .3rem 1rem; margin: .6rem 0 0; }

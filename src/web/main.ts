@@ -23,6 +23,7 @@ const SAMPLE_LABELS: Record<string, string> = {
   '07-outlook-sign-request.msg': 'Outlook .msg file: fake signature request',
   '08-pdf-link-lure.eml': 'Calm email, the link is in the PDF',
   '09-contract-remote-template.eml': 'Contract that loads a remote template',
+  '10-voicemail-zip.eml': 'Voicemail ZIP with a sign-in page inside',
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -297,9 +298,9 @@ function renderAttachments(a: Analysis) {
         h('p', { class: 'att-name' }, h('strong', { class: 'mono' }, att.filename), ` ${formatBytes(att.size)}`),
         h('p', { class: 'small' }, `Declared as ${att.contentType}${att.detectedType ? `; content looks like ${att.detectedType}` : ''}`),
         h('p', { class: 'mono hash' }, `SHA-256 ${att.sha256}`),
-        att.zipEntries.length > 0 && h('details', {}, h('summary', {}, `${att.zipEntries.length} files inside`), h('ul', { class: 'mono small' }, shown(att.zipEntries).map((n) => {
+        att.zipEntries.length > 0 && h('details', {}, h('summary', {}, `${att.zipEntries.length} file${att.zipEntries.length === 1 ? '' : 's'} inside`), h('ul', { class: 'mono small' }, shown(att.zipEntries).map((n) => {
           const hash = att.zipHashes.find((z) => z.name === n)?.sha256;
-          return h('li', {}, n, hash && h('span', { class: 'hash' }, ` SHA-256 ${hash}`));
+          return h('li', {}, n, hash && h('span', { class: 'hash' }, `SHA-256 ${hash}`));
         })), more(att.zipEntries)),
         linksIn(a, att.filename) > 0 && h('p', { class: 'small' }, `${linksIn(a, att.filename)} link${linksIn(a, att.filename) === 1 ? '' : 's'} inside, listed under Links`),
         att.issues.length > 0 && h('ul', { class: 'issues' }, att.issues.map((i) => h('li', {}, i.detail))),

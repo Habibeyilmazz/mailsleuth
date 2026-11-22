@@ -192,7 +192,7 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
   let zipEntries: string[] = [];
   if (kind === 'zip' || kind === 'ooxml') {
     const entries = readZipEntries(bytes);
-    zipEntries = entries.map((e) => e.name);
+    zipEntries = entries.map((e) => e.name).filter((n) => !n.endsWith('/')); // folders are not files
     if (entries.some((e) => /(^|\/)vbaProject\.bin$/i.test(e.name))) {
       issues.push({ id: 'office-macro', detail: 'the document contains a VBA macro project (vbaProject.bin). Macros can run code when you click "Enable content"' });
     }

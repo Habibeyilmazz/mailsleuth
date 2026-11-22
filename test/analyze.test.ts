@@ -76,6 +76,16 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.nextSteps.join(' ')).toContain('Do not open the attachment');
   });
 
+  it('reads the sign-in page inside the voicemail ZIP', async () => {
+    const a = await sample('10-voicemail-zip.eml');
+    expect(ids(a)).toEqual(['archive-risky-content', 'attachment-links', 'ip-host', 'lookalike-domain']);
+    expect(a.score).toBe(62);
+    const inside = 'VM_0042.zip › VM_0042/Play_Voicemail.html';
+    expect(a.links.map((l) => [l.host, l.attachment])).toEqual([['login.rnicrosoftonline-voice.example', inside], ['198.51.100.61', inside]]);
+    expect(a.attachments[0].zipHashes.map((z) => z.name)).toEqual(['VM_0042/Play_Voicemail.html']);
+    expect(a.attachments[0].zipEntries).toEqual(['VM_0042/Play_Voicemail.html']); // the folder entry is not a file
+  });
+
   it('lists the form target of an HTML attachment as a link of that attachment', async () => {
     const a = await sample('02-invoice-macro.eml');
     expect(a.links.filter((l) => l.attachment)).toMatchObject([{ finalUrl: 'https://collect.invalid/submit', text: '(form submit)', attachment: 'Remittance_Advice.pdf.html' }]);
@@ -168,7 +178,7 @@ describe('end-to-end on the bundled samples', () => {
   });
 
   it('never produces findings without an explanation', async () => {
-    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml', '09-contract-remote-template.eml']) {
+    for (const name of ['01-paypal-lookalike.eml', '02-invoice-macro.eml', '04-ceo-gift-cards.eml', '05-parcel-redelivery.eml', '08-pdf-link-lure.eml', '09-contract-remote-template.eml', '10-voicemail-zip.eml']) {
       for (const f of (await sample(name)).findings) {
         expect(f.title.length).toBeGreaterThan(5);
         expect(f.explanation.length).toBeGreaterThan(20);

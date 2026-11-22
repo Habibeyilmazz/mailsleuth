@@ -1,6 +1,6 @@
 // End-to-end check of the main user journey in real browser engines, served from a sub-path
 // the way GitHub Pages serves the project (/mailsleuth/). For every sample, the page must show
-// exactly what the CLI computes in Node (score, reasons, delivery dates, attachment hashes), so
+// exactly what the CLI computes in Node (score, reasons, delivery dates, attachment hashes and those of files inside ZIPs), so
 // engine differences (dates, text decoding, regex, crypto) surface as failures.
 // It also runs axe-core on the start page and on every sample's result with all sections
 // expanded, in light and dark colours, and fails on any WCAG 2.2 A/AA or best-practice violation.
@@ -38,13 +38,13 @@ const shown = (page) =>
   page.evaluate(() => ({
     score: Number(document.querySelector('.score-n').textContent),
     reasons: [...document.querySelectorAll('.finding-head h3')].map((x) => x.textContent),
-    hashes: [...document.querySelectorAll('.hash')].map((x) => x.textContent.replace('SHA-256 ', '')),
+    hashes: [...document.querySelectorAll('.hash')].map((x) => x.textContent.trim().replace('SHA-256 ', '')),
     dates: [...document.querySelectorAll('.hop-meta')].map((x) => x.textContent.split(',')[0]),
   }));
 const expected = (a) => ({
   score: a.score,
   reasons: a.findings.map((f) => f.title),
-  hashes: a.attachments.map((x) => x.sha256),
+  hashes: a.attachments.flatMap((x) => [x.sha256, ...x.zipHashes.map((z) => z.sha256)]),
   dates: a.hops.map((h) => (h.date ? utc(h.date) : 'no readable date')),
 });
 

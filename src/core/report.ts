@@ -156,7 +156,7 @@ function sections(a: Analysis, level: number): string[] {
     `- ${code(att.filename)}, ${formatBytes(att.size)}, declared ${code(att.contentType)}${att.detectedType ? `, content looks like ${prose(att.detectedType)}` : ''}`,
     `  - SHA-256 ${code(att.sha256)}`,
     ...att.issues.map((i) => `  - ${code(i.detail)}`),
-    ...(att.zipEntries.length ? [`  - ${att.zipEntries.length} files inside: ${att.zipEntries.slice(0, 20).map(code).join(', ')}${att.zipEntries.length > 20 ? ', …' : ''}`] : []),
+    ...(att.zipEntries.length ? [`  - ${att.zipEntries.length} file${att.zipEntries.length === 1 ? '' : 's'} inside: ${att.zipEntries.slice(0, 20).map(code).join(', ')}${att.zipEntries.length > 20 ? ', …' : ''}`] : []),
     ...att.zipHashes.slice(0, 20).map((z) => `  - SHA-256 of ${code(z.name)} inside: ${code(z.sha256)}`),
   ].join('\n')));
 
