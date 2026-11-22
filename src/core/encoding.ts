@@ -25,6 +25,8 @@ export function textToBinary(text: string): string {
 export function decodeCharset(bytes: Uint8Array, charset = 'utf-8'): string {
   let label = charset.trim().toLowerCase() || 'utf-8';
   if (label === 'us-ascii' || label === 'ascii') label = 'windows-1252';
+  // TextDecoder reads "utf-16" as little-endian; in MIME it means "by the byte order mark, else big-endian" (RFC 2781).
+  if (label === 'utf-16') label = bytes[0] === 0xff && bytes[1] === 0xfe ? 'utf-16le' : 'utf-16be';
   try {
     return new TextDecoder(label).decode(bytes);
   } catch {

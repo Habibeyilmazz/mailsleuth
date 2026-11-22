@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findEmailsInText, parseAddressList, parseReturnPath } from '../src/core/address';
 import { inspectDomain } from '../src/core/domains';
 import { buildAuthReport, parseAuthResults } from '../src/core/auth';
-import { binaryToBytes, bytesToBinary, decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
+import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
 import { isAttachment, parseMessage, parseStructuredHeader, walkParts } from '../src/core/mime';
 import { buildHops, parseDate, parseReceived } from '../src/core/received';
 
@@ -16,6 +16,13 @@ describe('encoding', () => {
     expect([...s].every((c, i) => c.charCodeAt(0) === bytes[i])).toBe(true);
     expect(binaryToBytes(s)).toEqual(bytes);
     expect(bytesToBinary(new Uint8Array())).toBe('');
+  });
+  it('reads charset "utf-16" by its byte order mark, big-endian without one (RFC 2781)', () => {
+    const bytes = (...b: number[]) => Uint8Array.from(b);
+    expect(decodeCharset(bytes(0xfe, 0xff, 0, 0x56, 0, 0x65), 'UTF-16')).toBe('Ve');
+    expect(decodeCharset(bytes(0xff, 0xfe, 0x56, 0, 0x65, 0), 'utf-16')).toBe('Ve');
+    expect(decodeCharset(bytes(0, 0x56, 0, 0x65), 'utf-16')).toBe('Ve');
+    expect(decodeHeaderValue('=?UTF-16?B?/v8AVgBlAHIAaQBmAHk=?=')).toBe('Verify');
   });
   it('decodes RFC 2047 B and Q words and joins adjacent ones', () => {
     expect(decodeHeaderValue('=?UTF-8?B?w5xyw7xu?= =?UTF-8?Q?_fiyat=C4=B1?=')).toBe('Ürün fiyatı');
