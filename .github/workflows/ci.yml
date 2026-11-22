@@ -54,5 +54,9 @@ jobs:
       - name: CLI escapes bidi controls from the email
         run: |
           printf 'From: a@b.example\nSubject: pay\342\200\256lapyap\n\nhi\n' | node dist-cli/mailsleuth.js --compact - | grep -q 'pay.u202elapyap'
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: End-to-end journey in Chromium, Firefox and WebKit, served from a sub-path like Pages
+        run: npm run e2e -- chromium firefox webkit
       - name: Built page forbids network access
         run: grep -q "connect-src 'none'" dist/index.html

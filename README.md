@@ -99,8 +99,11 @@ npm run typecheck
 npm test                 # Vitest unit and end-to-end tests on the samples
 npm run fuzz             # timing fuzz: hostile 60 KB inputs must each analyze in under 500 ms (about 15 s)
 npm run build
+npm run e2e -- chromium   # main journey (samples, file picker, paste) served from /mailsleuth/ like Pages; page must match the CLI
 npm run screenshots      # drives the built app in Chromium (Playwright), fails on console errors or external requests
 ```
+
+CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not the Safari app), with the browser set to a non-UTC time zone.
 
 ## Limitations
 
@@ -110,6 +113,7 @@ npm run screenshots      # drives the built app in Chromium (Playwright), fails 
 - Attachments are inspected, not decompressed: macros inside nested archives, PDF JavaScript and remote-template tricks in Office files are not detected.
 - `.msg` files: OLE-object and by-reference (cloud link) attachments are named in the report but not extracted, and the SHA-256 of an email attached inside a `.msg` is of the rebuilt MIME copy, not of any original file. Ordinary attachments hash exactly as in the `.eml`.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
+- A `Received` date without a time zone, or with a zone name RFC 5322 does not define (such as `CET` without a numeric offset), shows as "no readable date" rather than a guess.
 - Very large inputs cost memory: a 10 MB email of 450,000 distinct links takes about 3 s and 1 GB in the CLI, whose JSON then lists every link.
 - The page lists at most 200 headers, hops, links, attachments, MIME parts, ZIP entries or evidence lines per section and says how many it left out; findings and "Copy JSON report" cover all of them.
 - Authentication results are only counted in the email's favour when the checking server matches the newest `Received` hop. Setups where a separate filtering service checks mail before an internal server (or Gmail's "by" an IP address only, followed by a different host) can show genuine results as unverified; that removes a reassurance but never adds points.

@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "fuzz": "FUZZ=1 vitest run test/fuzz.test.ts",
+    "e2e": "node scripts/e2e.mjs",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
