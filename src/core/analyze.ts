@@ -365,7 +365,8 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     structure.push({ depth: partDepth, contentType: part.contentType, filename: part.filename, size: part.body.length });
     if (part.children.length) continue;
     if (isAttachment(part)) {
-      const isEmail = part.contentType === 'message/rfc822';
+      // Some mail apps and ticket systems attach a forwarded .eml as application/octet-stream.
+      const isEmail = part.contentType === 'message/rfc822' || /\.eml\s*$/i.test(part.filename ?? '');
       const filename = part.filename ?? (isEmail ? 'attached-message.eml' : 'unnamed-attachment');
       // An attached Outlook .msg (common in user reports) is analyzed like an attached .eml; other Office files are not emails.
       const nested = depth < MAX_NESTING && (isEmail || isCompoundFile(bytesToBinary(part.body.subarray(0, 8))));

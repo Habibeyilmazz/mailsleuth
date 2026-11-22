@@ -113,6 +113,19 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings.find((f) => f.id === 'attached-email')).toMatchObject({ severity: 'high', points: 25 });
   });
 
+  it('analyzes an attached .eml sent as application/octet-stream', async () => {
+    // Some mail apps and ticket systems attach a reported email this way; it scored 0 with no inner analysis.
+    const phish = readFileSync(new URL('../samples/01-paypal-lookalike.eml', import.meta.url)).toString('base64');
+    const a = await analyze(['From: sam@corp.example', 'Subject: Fwd: phish?', 'Content-Type: multipart/mixed; boundary=b', '', '--b',
+      'Content-Type: application/octet-stream', 'Content-Disposition: attachment; filename="phish.eml"', 'Content-Transfer-Encoding: base64', '', phish, '--b--', ''].join('\n'));
+    expect(a.attachments[0].email?.level).toBe('high');
+    expect(ids(a)).toContain('attached-email');
+    // Any other octet-stream attachment is still just a file.
+    const other = await analyze(['Content-Type: multipart/mixed; boundary=b', '', '--b', 'Content-Type: application/octet-stream',
+      'Content-Disposition: attachment; filename="notes.bin"', '', 'From: a@b.example', '', 'x', '--b--', ''].join('\n'));
+    expect(other.attachments[0].email).toBeNull();
+  });
+
   it('handles empty and garbage input without throwing', async () => {
     expect((await analyze('')).score).toBe(0);
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
