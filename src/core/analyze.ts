@@ -121,6 +121,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'office-remote-content': ['attachments', 'high', 'Office document loads content from the internet when opened', 'The document tells Word, Excel or PowerPoint to fetch a template or object from a web address as soon as it opens. Attackers use this to pull macros or an exploit (for example "Follina", CVE-2022-30190) into a file that looks clean and has no macro of its own.'],
   'pdf-encrypted': ['attachments', 'info', 'Encrypted PDF: its links could not be checked', 'Many ordinary PDFs are encrypted only to stop copying or printing and open without a password, but the encryption also hides their links from this check and from many mail filters. Hover over any link in the PDF before you click it.'],
   'uuencoded': ['attachments', 'low', 'File hidden in the message text (uuencoded)', 'An old way of sending files as lines of text inside the message. Mail apps such as Thunderbird still show it as an attachment, but some mail filters do not look for it, which is why malware senders use it. Today\'s mail apps never send files this way.'],
+  'too-many-links': ['links', 'medium', 'Too many links to check them all', 'Ordinary emails have at most a few hundred links. Padding a message, or a file in it, with thousands of harmless links is a way to bury one bad link where scanners give up. mailsleuth checks the first 20,000 distinct links (the email\'s own first, then attachments) and lists the rest as not checked.'],
   'attachment-links': ['attachments', 'info', 'Attachments contain links', 'PDF, HTML and Office attachments can carry links of their own, which mail filters often check less closely than links in the email. "Open the attached document" lures put the real link there. They are listed under Links with the same checks as the email\'s own links.'],
   'onenote': ['attachments', 'medium', 'OneNote attachment', 'OneNote files have been used to hide malicious programs behind fake buttons.'],
   'type-mismatch': ['attachments', 'medium', 'Attachment content does not match its name', 'The file\'s actual content (by its internal structure) is a different type than its extension claims.'],
@@ -344,6 +345,8 @@ function reassurances(auth: AuthReport, links: LinkInfo[], attachments: Attachme
 const MAX_NESTING = 3;
 const MAX_ZIP_INFLATED = 32 * 1024 * 1024; // per archive, like PDFs and Office files
 const MAX_ZIP_ENTRIES = 500;
+// About 15 µs per link (domain checks against every brand): 20,000 take 0.3 s; 600,000 froze the tab for 10 s.
+const MAX_LINKS = 20_000;
 const NAME_COVERED = new Set<AttachmentIssue['id']>(['executable', 'disk-image', 'html-attachment', 'onenote']);
 
 type RawLink = { href: string; text: string | null; source: LinkInfo['source']; attachment?: string };
@@ -495,9 +498,14 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   // A bare URL only adds to the <a> links of the same file (the email itself or one attachment).
   const where = (l: RawLink) => `${l.attachment ?? ''}\0${l.href}`;
   const htmlHrefs = new Set(allLinks.filter((l) => l.source === 'html').map(where));
+  const unchecked = new Set<string>();
   for (const l of allLinks) {
     const key = `${l.href}\0${l.text ?? ''}`;
     if (isIgnorableHref(l.href) || seen.has(key) || (l.source === 'text' && htmlHrefs.has(where(l)))) continue;
+    if (seen.size >= MAX_LINKS) {
+      unchecked.add(key);
+      continue;
+    }
     const info = analyzeLink(l.href, l.text, l.source, from?.domain);
     info.attachment = l.attachment ?? null;
     seen.set(key, info);
@@ -519,6 +527,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   if (!h.length) f.add('no-headers', '');
   else if (msg?.transportHeaders !== false) authChecks(f, auth); // a .msg without headers has nothing to check
   linkChecks(f, links);
+  if (unchecked.size) f.add('too-many-links', `${unchecked.size.toLocaleString('en-US')} more distinct links after the first ${MAX_LINKS.toLocaleString('en-US')} were not checked`);
   mailtoChecks(f, allLinks);
   attachmentChecks(f, attachments);
   for (const name of uuNames) f.add('uuencoded', name);

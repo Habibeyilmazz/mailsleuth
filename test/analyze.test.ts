@@ -346,8 +346,17 @@ describe('end-to-end on the bundled samples', () => {
   it('keeps thousands of distinct link findings linear', async () => {
     const t = performance.now();
     const a = await analyze('Content-Type: text/html\n\n' + Array.from({ length: 40000 }, (_, i) => `<a href="data:text/html,${i}">x</a>`).join(''));
-    expect(a.findings.find((f) => f.id === 'data-uri')?.evidence).toHaveLength(40000);
+    expect(a.findings.find((f) => f.id === 'data-uri')?.evidence).toHaveLength(20000); // the rest are past the link limit
     expect(performance.now() - t).toBeLessThan(1500); // was about 8 s with evidence.includes()
+  });
+  it('checks the first 20,000 distinct links and says how many were left out', async () => {
+    const pad = Array.from({ length: 20_100 }, (_, i) => `<a href="https://h${i}.example/">${i}</a>`).join('');
+    const t = performance.now();
+    const a = await analyze(`From: a@b.example\nContent-Type: text/html\n\n<a href="https://paypa1.example/">x</a>${pad}`);
+    expect(performance.now() - t).toBeLessThan(3000);
+    expect(a.links).toHaveLength(20_000);
+    expect(a.links[0].host).toBe('paypa1.example'); // the email's own links come first
+    expect(a.findings.find((f) => f.id === 'too-many-links')).toMatchObject({ severity: 'medium', evidence: ['101 more distinct links after the first 20,000 were not checked'] });
   });
   it('checks links made relative by a <base href> (baseStriker)', async () => {
     const a = await analyze('From: a@b.example\nContent-Type: text/html\n\n<base href="https://paypa1-secure.top/"><a href="signin">https://www.paypal.com/signin</a>');
