@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { findEmailsInText, parseAddressList, parseReturnPath } from '../src/core/address';
 import { inspectDomain } from '../src/core/domains';
 import { buildAuthReport, parseAuthResults } from '../src/core/auth';
-import { decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
+import { binaryToBytes, bytesToBinary, decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
 import { isAttachment, parseMessage, parseStructuredHeader, walkParts } from '../src/core/mime';
 import { buildHops, parseDate, parseReceived } from '../src/core/received';
 
 const dec = (b: Uint8Array) => new TextDecoder().decode(b);
 
 describe('encoding', () => {
+  it('turns bytes into a byte-per-character string and back, across chunk boundaries', () => {
+    const bytes = Uint8Array.from({ length: 0x2000 * 3 + 5 }, (_, i) => (i * 7) % 256);
+    const s = bytesToBinary(bytes);
+    expect(s.length).toBe(bytes.length);
+    expect([...s].every((c, i) => c.charCodeAt(0) === bytes[i])).toBe(true);
+    expect(binaryToBytes(s)).toEqual(bytes);
+    expect(bytesToBinary(new Uint8Array())).toBe('');
+  });
   it('decodes RFC 2047 B and Q words and joins adjacent ones', () => {
     expect(decodeHeaderValue('=?UTF-8?B?w5xyw7xu?= =?UTF-8?Q?_fiyat=C4=B1?=')).toBe('Ürün fiyatı');
     expect(decodeHeaderValue('=?iso-8859-1?q?caf=E9?= ok')).toBe('café ok');
