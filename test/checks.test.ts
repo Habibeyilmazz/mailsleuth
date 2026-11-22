@@ -143,7 +143,10 @@ describe('attachments', () => {
   it('flags double extensions, executables, HTML, RLO names and type mismatches', () => {
     expect(attIssues('invoice.pdf.exe', 'MZ')).toEqual(['double-extension', 'executable']);
     expect(attIssues('statement.pdf   .html', '<html></html>')).toEqual(['double-extension', 'html-attachment']);
-    expect(attIssues('photo‮gpj.exe', 'MZ')).toEqual(['rlo-filename', 'executable']);
+    expect(attIssues('photo\u202Egpj.exe', 'MZ')).toEqual(['rlo-filename', 'executable']);
+    // The "real name" must be readable: JSON.stringify left the U+202E in place, so it still displayed reversed.
+    expect(inspectAttachment('photo\u202Egpj.exe', new Uint8Array()).issues[0].detail).toContain('"photo⟨U+202E⟩gpj.exe"');
+    expect(attIssues('photo\u202Bgpj.exe', 'MZ')).toEqual(['rlo-filename', 'executable']);
     expect(attIssues('invoice.pdf', 'MZ\x90\x00')).toEqual(['type-mismatch']);
     expect(attIssues('invoice.pdf', '%PDF-1.7')).toEqual([]);
   });

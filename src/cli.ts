@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs';
 import { analyze, MAX_INPUT_BYTES, VERSION } from './core/analyze';
-import { bytesToBinary } from './core/encoding';
+import { bytesToBinary, escapeJsonControls } from './core/encoding';
 
 const HELP = `mailsleuth ${VERSION} - explainable suspicious-email analysis, fully offline
 
@@ -57,7 +57,7 @@ async function main(argv: string[]): Promise<number> {
     return 2;
   }
   const result = await analyze(bytesToBinary(bytes));
-  process.stdout.write(JSON.stringify(result, null, compact ? 0 : 2) + '\n');
+  process.stdout.write(escapeJsonControls(JSON.stringify(result, null, compact ? 0 : 2)) + '\n');
   return 0;
 }
 

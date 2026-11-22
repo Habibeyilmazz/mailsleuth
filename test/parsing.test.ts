@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findEmailsInText, parseAddressList, parseReturnPath } from '../src/core/address';
 import { inspectDomain } from '../src/core/domains';
 import { buildAuthReport, parseAuthResults } from '../src/core/auth';
-import { decodeHeaderValue, decodeQuotedPrintable, htmlToText, sha256Hex, textToBinary } from '../src/core/encoding';
+import { decodeHeaderValue, decodeQuotedPrintable, escapeJsonControls, htmlToText, revealBidi, sha256Hex, textToBinary } from '../src/core/encoding';
 import { isAttachment, parseMessage, parseStructuredHeader, walkParts } from '../src/core/mime';
 import { buildHops, parseReceived } from '../src/core/received';
 
@@ -25,6 +25,16 @@ describe('encoding', () => {
   });
   it('turns HTML into visible text without script/style', () => {
     expect(htmlToText('<style>x{}</style><p>Hi&nbsp;there</p><script>evil()</script><p>&amp; bye</p>')).toBe('Hi there\n& bye');
+  });
+  it('shows bidi controls instead of letting them reorder text', () => {
+    expect(revealBidi('invoice\u202Efdp.exe')).toBe('invoice⟨U+202E⟩fdp.exe');
+    expect(revealBidi('\u2066a\u2069 Ünïcode')).toBe('⟨U+2066⟩a⟨U+2069⟩ Ünïcode');
+  });
+  it('escapes bidi and C1 controls in JSON without changing its meaning', () => {
+    const value = { s: 'a\u202Eb\u009B31mc é' };
+    const json = escapeJsonControls(JSON.stringify(value));
+    expect(json).toBe('{"s":"a\\u202eb\\u009b31mc é"}');
+    expect(JSON.parse(json)).toEqual(value);
   });
   it('hashes with SHA-256', async () => {
     expect(await sha256Hex(new TextEncoder().encode('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');

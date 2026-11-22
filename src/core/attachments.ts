@@ -1,4 +1,4 @@
-import { bytesToBinary } from './encoding';
+import { bytesToBinary, revealBidi } from './encoding';
 
 export type AttachmentIssueId =
   | 'rlo-filename'
@@ -115,8 +115,8 @@ export function inspectAttachment(filename: string, bytes: Uint8Array): { kind: 
   const issues: AttachmentIssue[] = [];
   const kind = sniffKind(bytes);
   const name = filename.normalize('NFC');
-  if (/[‮‭‏⁦-⁩]/.test(name)) {
-    issues.push({ id: 'rlo-filename', detail: `file name contains invisible text-direction characters, so the extension you see is not the real one (real name: ${JSON.stringify(name)})` });
+  if (/[\u202a-\u202e\u200f\u2066-\u2069]/.test(name)) {
+    issues.push({ id: 'rlo-filename', detail: `file name contains invisible text-direction characters, so the extension you see is not the real one (real name: "${revealBidi(name)}")` });
   }
   const ext = extensionOf(name);
   const decoy = DECOY_EXT.exec(name);

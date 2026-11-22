@@ -79,6 +79,14 @@ try {
   if (!(await page.isVisible('text=No email headers found'))) problems.push('body-only paste: missing "No email headers found" note');
   console.log(`pasted body only: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
 
+  // Bidi controls from the email are shown as markers, never obeyed: "photo\u202Egpj.exe" must not display as "photoexe.jpg".
+  await page.click('text=Analyze another email');
+  await page.fill('#paste', 'From: a@b.example\nSubject: Holiday \u202Egpj.exe\nContent-Type: multipart/mixed; boundary=x\n\n--x\nContent-Type: application/octet-stream; name="photo\u202Egpj.exe"\n\nMZ\n--x--\n');
+  await page.click('#analyze-paste');
+  await page.waitForSelector('#verdict-h');
+  const shownText = await page.textContent('#results');
+  if (shownText.includes('\u202E') || !shownText.includes('photo⟨U+202E⟩gpj.exe')) problems.push('bidi control in an attachment name reached the page unescaped');
+
   // File picker path (same code path as drag and drop).
   await page.click('text=Analyze another email');
   await page.setInputFiles('#file', 'samples/02-invoice-macro.eml');

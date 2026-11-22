@@ -1,7 +1,7 @@
 import './style.css';
 import type { Address } from '../core/address';
 import { analyze, MAX_INPUT_BYTES, type Analysis, type Finding } from '../core/analyze';
-import { bytesToBinary, textToBinary } from '../core/encoding';
+import { bytesToBinary, escapeJsonControls, textToBinary } from '../core/encoding';
 import { toUnicodeDomain } from '../core/punycode';
 import { defang, formatBytes, formatDelay, formatUtc, h, type Child } from './dom';
 
@@ -324,7 +324,7 @@ function render() {
   const toolbar = h('div', { class: 'toolbar' },
     crumbs,
     h('span', { class: 'spacer' }),
-    copyButton(JSON.stringify(a, null, 2), 'Copy JSON report'),
+    copyButton(escapeJsonControls(JSON.stringify(a, null, 2)), 'Copy JSON report'),
     h('button', { type: 'button', class: 'ghost small', onclick: reset }, 'Analyze another email'),
   );
   results.replaceChildren(

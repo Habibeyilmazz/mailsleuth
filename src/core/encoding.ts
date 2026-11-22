@@ -104,6 +104,24 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+// Invisible bidi overrides, embeddings and isolates ("Trojan Source" characters) reorder the text
+// around them, so "invoice\u202Efdp.exe" displays as "invoiceexe.pdf".
+const BIDI_CONTROLS = /[\u202a-\u202e\u2066-\u2069]/g;
+
+/** Shows each bidi control as a visible "⟨U+202E⟩" marker, so email text cannot reorder what the reader sees. */
+export function revealBidi(s: string): string {
+  return s.replace(BIDI_CONTROLS, (c) => `⟨U+${c.charCodeAt(0).toString(16).toUpperCase()}⟩`);
+}
+
+/**
+ * JSON.stringify leaves bidi controls and C1 control characters (U+0080-U+009F) raw, so they
+ * reach the terminal: the former reorder lines, the latter are escape codes on some terminals.
+ * They can only occur inside JSON strings, where \uXXXX means the same thing.
+ */
+export function escapeJsonControls(json: string): string {
+  return json.replace(/[\u0080-\u009f\u202a-\u202e\u2066-\u2069]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
