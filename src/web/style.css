@@ -4,6 +4,7 @@
   --ink: #18212c;
   --muted: #5a6675;
   --line: #d5dbe2;
+  --field-line: #7d8a98;
   --action: #0b6467;
   --action-ink: #ffffff;
   --high: #b42318;
@@ -27,6 +28,7 @@
     --ink: #e4e9ef;
     --muted: #9aa6b4;
     --line: #2c3743;
+    --field-line: #66758a;
     --action: #4fb7b3;
     --action-ink: #0d1a1c;
     --high: #ff8a7a;
@@ -102,7 +104,7 @@ a { color: var(--action); }
 .paste label, .samples label { font-weight: 600; }
 textarea, select {
   width: 100%; font: .88rem/1.45 var(--mono); color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line); border-radius: 10px; padding: .7rem .8rem;
+  border: 1px solid var(--field-line); border-radius: 10px; padding: .7rem .8rem;
 }
 select { font-family: var(--sans); font-size: 1rem; }
 textarea { resize: vertical; }
@@ -115,7 +117,7 @@ textarea { resize: vertical; }
 button { font: inherit; cursor: pointer; border-radius: 10px; padding: .6rem 1.1rem; border: 1px solid transparent; }
 .primary { background: var(--action); color: var(--action-ink); font-weight: 600; justify-self: start; }
 .primary:hover { filter: brightness(1.08); }
-.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.ghost { background: transparent; color: var(--ink); border-color: var(--field-line); }
 .ghost:hover { border-color: var(--action); color: var(--action); }
 .small { font-size: .85rem; padding: .35rem .7rem; }
 .link-button { background: none; border: 0; padding: 0; color: var(--action); text-decoration: underline; }
@@ -236,7 +238,7 @@ summary { cursor: pointer; color: var(--action); font-weight: 600; font-size: .9
 .hash { font-size: .78rem; color: var(--muted); margin-top: .3rem; }
 .att-name { overflow-wrap: anywhere; }
 
-.headers { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .3rem 1rem; margin: .6rem 0 0; }
+.headers { display: grid; grid-template-columns: fit-content(16rem) minmax(0, 1fr); gap: .3rem 1rem; margin: .6rem 0 0; }
 .headers dt { font-weight: 700; }
 .headers dd { margin: 0; overflow-wrap: anywhere; }
 .tree { margin-top: .5rem; display: grid; gap: .15rem; }

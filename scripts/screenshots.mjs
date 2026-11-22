@@ -85,6 +85,24 @@ try {
   await page.waitForSelector('#verdict-h');
   console.log(`file input: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
 
+  // A slow file read must not replace a newer analysis; a failed read must say so.
+  const race = await newPage({ viewport: { width: 1280, height: 860 } });
+  await race.evaluate(() => {
+    const real = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+      if (this.name.includes('invoice')) return new Promise((ok) => setTimeout(() => ok(real.call(this)), 800));
+      return Promise.reject(new Error('NotReadableError'));
+    };
+  });
+  await race.setInputFiles('#file', 'samples/02-invoice-macro.eml');
+  await runSample(race, '03-newsletter-legit.eml');
+  await race.waitForTimeout(1200);
+  if ((await race.textContent('.crumbs')) !== '03-newsletter-legit.eml') problems.push('slow file read replaced a newer analysis');
+  await race.click('text=Analyze another email');
+  await race.setInputFiles('#file', 'samples/01-paypal-lookalike.eml');
+  await race.waitForSelector('#status.is-error');
+  console.log(`unreadable file: ${await race.textContent('#status')}`);
+
   const mobile = await newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', isMobile: true, hasTouch: true });
   await mobile.screenshot({ path: `${outDir}/mobile-home-dark.png` });
   for (const file of samples) {
