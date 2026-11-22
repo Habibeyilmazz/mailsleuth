@@ -56,6 +56,14 @@ try {
   await page.waitForSelector('#verdict-h');
   console.log(`pasted: ${await page.textContent('#verdict-h')}`);
 
+  // Paste path: body text only, no headers.
+  await page.click('text=Analyze another email');
+  await page.fill('#paste', 'Dear customer,\nverify your account within 24 hours: https://paypa1-login.example/\n');
+  await page.click('#analyze-paste');
+  await page.waitForSelector('#verdict-h');
+  if (!(await page.isVisible('text=No email headers found'))) problems.push('body-only paste: missing "No email headers found" note');
+  console.log(`pasted body only: ${await page.textContent('#verdict-h')}, ${await page.textContent('.score-n')}`);
+
   // File picker path (same code path as drag and drop).
   await page.click('text=Analyze another email');
   await page.setInputFiles('#file', 'samples/02-invoice-macro.eml');
