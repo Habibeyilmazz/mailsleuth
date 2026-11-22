@@ -106,6 +106,17 @@ describe('end-to-end on the bundled samples', () => {
     expect(a.findings.map((f) => f.id)).toContain('text-mismatch');
   });
 
+  it('treats a uuencoded file in the message text as an attachment', async () => {
+    // Encoded by Python's binascii.b2a_uu: 286 bytes starting with "MZ".
+    const uu = 'begin 644 invoice.pdf.exe\nM35J0```!`@,$!08\'"`D*"PP-#@\\0$1(3%!46%Q@9&AL<\'1X?("$B(R0E)B<H\nM*2HK+"TN+S`Q,C,T-38W.#DZ.SP]/C]`04)#1$5&1TA)2DM,34Y/4%%24U15\nM5E=865I;7%U>7V!A8F-D969G:&EJ:VQM;F]P<7)S=\'5V=WAY>GM\\?7Y_@(&"\nM@X2%AH>(B8J+C(V.CY"1DI.4E9:7F)F:FYR=GI^@H:*CI*6FIZBIJJNLK:ZO\nML+&RL[2UMK>XN;J[O+V^O\\#!PL/$Q<;\'R,G*R\\S-SL_0T=+3U-76U]C9VMO<\nMW=[?X.\'BX^3EYN?HZ>KK[.WN[_#Q\\O/T]?;W^/GZ^_S]_O]P;&%C96AO;&1E\n0<BP@;F]T(&$@<\')O9W)A;0``\n`\nend\n';
+    const a = await analyze(`From: billing@vendor.example\nSubject: Invoice\n\nPlease see the invoice below.\n\n${uu.replace(/\n/g, '\r\n')}\nThanks`);
+    expect(a.attachments.map((x) => [x.filename, x.size, x.sha256])).toEqual([['invoice.pdf.exe', 286, '00e86c4fefbcecef2c9a6a8a3d71c1d6192d996eb9d18245ac95a541ba31386b']]);
+    expect(ids(a)).toEqual(expect.arrayContaining(['double-extension', 'executable', 'uuencoded']));
+    // Prose that merely starts with "begin 644" is not a file.
+    const prose = await analyze('From: a@b.example\n\nbegin 644 is the file mode we use\nHello there, see you at the meeting.\nend');
+    expect(prose.attachments).toEqual([]);
+  });
+
   it('flags a mailto: link whose text shows an address at another domain', async () => {
     const html = (a: string) => analyze(`From: ceo@company.example\nContent-Type: text/html\n\n${a}`);
     const bad = await html('Write to <a href="mailto:ceo.desk%40quick-reply.example?subject=Wire">ceo@company.example</a>');

@@ -5,7 +5,7 @@ import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, readable, sameOrg, type DomainIssue } from './domains';
 import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, decodeHtmlEntities, htmlToText, sha256Hex, textToBinary } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
-import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
+import { extractUuencoded, getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
 import { isCompoundFile, readMsg, type MsgResult } from './msg';
 import { inspectPdf } from './pdf';
 import { buildHops, type Hop } from './received';
@@ -116,6 +116,7 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'pdf-javascript': ['attachments', 'medium', 'PDF contains JavaScript', 'Script in a PDF can open web pages, show fake prompts or attack bugs in the reader. Some real forms use it for calculations, so it is a warning sign, not proof.'],
   'pdf-embedded-file': ['attachments', 'medium', 'PDF carries a hidden file', 'A file embedded in the PDF opens from the reader\'s attachments panel and is not checked by most mail filters. It was not inspected here.'],
   'pdf-encrypted': ['attachments', 'info', 'Encrypted PDF: its links could not be checked', 'Many ordinary PDFs are encrypted only to stop copying or printing and open without a password, but the encryption also hides their links from this check and from many mail filters. Hover over any link in the PDF before you click it.'],
+  'uuencoded': ['attachments', 'low', 'File hidden in the message text (uuencoded)', 'An old way of sending files as lines of text inside the message. Mail apps such as Thunderbird still show it as an attachment, but some mail filters do not look for it, which is why malware senders use it. Today\'s mail apps never send files this way.'],
   'attachment-links': ['attachments', 'info', 'Attachments contain links', 'PDF and HTML attachments can carry links of their own, which mail filters often check less closely than links in the email. "Open the attached document" lures put the real link there. They are listed under Links with the same checks as the email\'s own links.'],
   'onenote': ['attachments', 'medium', 'OneNote attachment', 'OneNote files have been used to hide malicious programs behind fake buttons.'],
   'type-mismatch': ['attachments', 'medium', 'Attachment content does not match its name', 'The file\'s actual content (by its internal structure) is a different type than its extension claims.'],
@@ -398,7 +399,9 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const attachments: AttachmentInfo[] = [];
   const structure: Analysis['structure'] = [];
   const depthOf = new Map<MimePart, number>([[root, 0]]);
-  for (const part of walkParts(root)) {
+  const parts = [...walkParts(root)]; // uuencoded files found in a text part are appended as attachments
+  const uuNames: string[] = [];
+  for (const part of parts) {
     const partDepth = depthOf.get(part) ?? 0;
     part.children.forEach((c) => depthOf.set(c, partDepth + 1));
     structure.push({ depth: partDepth, contentType: part.contentType, filename: part.filename, size: part.body.length });
@@ -441,6 +444,12 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     } else {
       texts.push(text);
       for (const href of extractTextLinks(text)) rawLinks.push({ href, text: null, source: 'text' });
+      for (const uu of extractUuencoded(bytesToBinary(part.body))) {
+        const file: MimePart = { headers: [], contentType: 'application/octet-stream', params: {}, disposition: 'attachment', filename: uu.filename, body: uu.body, children: [] };
+        depthOf.set(file, partDepth + 1);
+        parts.push(file);
+        uuNames.push(uu.filename);
+      }
     }
   }
 
@@ -477,6 +486,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   linkChecks(f, links);
   mailtoChecks(f, allLinks);
   attachmentChecks(f, attachments);
+  for (const name of uuNames) f.add('uuencoded', name);
   nestedChecks(f, attachments);
   languageChecks(f, language);
   deliveryChecks(f, hops);

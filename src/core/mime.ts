@@ -231,3 +231,31 @@ export function isAttachment(part: MimePart): boolean {
   if (part.disposition === 'attachment' || part.filename) return true;
   return !part.contentType.startsWith('text/') && !part.contentType.startsWith('multipart/');
 }
+
+/** uuencoded files in a plain-text body ("begin 644 name" … "end"); Thunderbird, for one, shows them as attachments. */
+export function extractUuencoded(binary: string): { filename: string; body: Uint8Array }[] {
+  const out: { filename: string; body: Uint8Array }[] = [];
+  if (!/^begin [0-7]{3,4} /m.test(binary)) return out;
+  const lines = binary.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^begin [0-7]{3,4} (.+)$/.exec(lines[i]);
+    if (!m) continue;
+    const bytes: number[] = [];
+    let j = i + 1;
+    for (; j < lines.length && lines[j] !== 'end'; j++) {
+      const line = lines[j];
+      const n = (line.charCodeAt(0) - 32) & 63;
+      if (!line || line.length < 1 + Math.ceil((n * 4) / 3)) break; // not uuencoded data
+      const c = (k: number) => ((line.charCodeAt(k) || 32) - 32) & 63; // trailing blanks may have been stripped in transit
+      const start = bytes.length;
+      for (let k = 1; bytes.length - start < n; k += 4) {
+        const v = (c(k) << 18) | (c(k + 1) << 12) | (c(k + 2) << 6) | c(k + 3);
+        bytes.push(v >> 16, (v >> 8) & 255, v & 255);
+      }
+      bytes.length = start + n; // the last group of a line is padded
+    }
+    if (bytes.length) out.push({ filename: new TextDecoder().decode(binaryToBytes(m[1].trim())), body: Uint8Array.from(bytes) });
+    i = j;
+  }
+  return out;
+}
