@@ -19,9 +19,14 @@ npm ci
 npm run dev          # web app on http://localhost:4190
 ```
 
-There is no hosted copy yet; `npm run build` gives a static `dist/` you can serve yourself (see [Static build](#static-build)).
+Then, on the start page:
 
-Pick one of the synthetic samples on the start page, drop your own `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page; that gives a `.msg` file. Headers alone also work; body text alone (no headers) gets only the link and wording checks. A PDF, image, archive or program dropped on its own is refused rather than rated: analyze the email it came in, which also gives its SHA-256 for a lookup. Files saved with a byte order mark, as UTF-16, or with CR-only line endings are read too.
+- **Just looking?** Pick one of the eight synthetic samples (look-alike domain, macro invoice, CEO gift cards, a link hidden in a PDF, a clean newsletter for contrast, and more).
+- **Your own email:** drop or choose its `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page.
+- **Only part of it?** Headers alone work; body text alone (no headers) gets only the link and wording checks. Files saved with a byte order mark, as UTF-16, or with CR-only line endings are read too.
+- **Only the attachment?** A PDF, image, archive or program dropped on its own is refused rather than rated: analyze the email it came in, which also gives the file's SHA-256 for a lookup.
+
+There is no hosted copy yet; `npm run build` gives a static `dist/` you can serve yourself (see [Static build](#static-build)).
 
 More screenshots: [start page](docs/screenshots/home.png), [a full result](docs/screenshots/result.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [a link hidden in a PDF attachment](docs/screenshots/pdf-link-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
@@ -181,8 +186,12 @@ CI runs `npm run e2e` in Chromium, Firefox and WebKit (Playwright's builds, not 
 
 ## Roadmap
 
-- Office remote-template detection and links inside Office documents (inflate a ZIP entry with `DecompressionStream`, as the PDF object streams already are)
+Ideas, not promises; the order is roughly what would help most.
+
+- A hosted copy: the manual Pages workflow is ready, Pages just has to be switched on for the repository
+- Office remote-template detection and links inside Office documents and ZIP archives (inflate an entry with `DecompressionStream`, as the PDF object streams already are)
 - Reading links in encrypted PDFs that open without a password (needs MD5/RC4 for older PDFs and AES for newer ones)
+- QR codes in images and PDFs ("scan to sign in"), which needs an image decoder in the browser
 - Full Public Suffix List and a larger confusables table
 - More languages for the phrase checks
 
