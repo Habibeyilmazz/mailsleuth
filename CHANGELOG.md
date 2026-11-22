@@ -5,6 +5,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ## [Unreleased]
 
 ### Fixed
+- Phones: one long unbreakable token (the `data:` link in sample 05) widened the result page past the screen. Grid columns are now `minmax(0, 1fr)` and panels wrap long tokens.
+- Desktop: the sticky verdict column was taller than an 860px window, hiding the last "What to do next" steps until the end of the page. It now scrolls on its own and is keyboard-focusable (Shift+Tab from the verdict, then arrow keys/End).
+- Dark mode: the logo's magnifier handle was invisible and the lens a white blob; the SVG now has dark colours.
+- Input errors ("Nothing to analyze yet", too large, parse failure) were grey text far below the button; they now use the warning colour and empty paste returns focus to the paste box.
+- Screen readers: the risk score used `aria-label` on a paragraph, which is not announced; it is now visually hidden text. Copy buttons announce "Copied".
 - Pasted body text without headers was silently dropped and scored 0; it is now analyzed (links, wording) with a note that sender and authentication checks need the full source.
 - Look-alike false positives: everyday words one edit away from a brand ("cloud", "finance", "strip") and the surname Norton or the word "outlook" in a display name no longer score as brand impersonation.
 - Authentication-Results counted as verified when its server matched a forged lower `Received` hop or had no server name; it must now match the newest receiving hop (or a Microsoft 365 hop when unnamed).
@@ -18,9 +23,15 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - Postfix-style `Received: by host (Postfix, from userid 0)` showed a hop "from userid".
 - README brand count (44, not 43); the CLI build no longer copies the web favicon.
 
+### Added
+- Ctrl+Enter (Cmd+Enter on a Mac) in the paste box analyzes it.
+- Touch screens see "Choose an .eml file" instead of "Drop an .eml file here".
+- `npm run screenshots` now also checks: no horizontal scroll at 390px on every sample (measured against the device width, since mobile Chrome widens `innerWidth` to fit wide content and hid the old bug), the last next step reachable by keyboard, and the empty-paste error.
+
 ### Notes for the next contributor
 - Sample 05 imitates Microsoft 365 headers with reserved `example.net` host names, so it now shows "cannot be tied to a receiving server"; that is the new rule working, not a bug.
-- Codex hit its usage limit mid-review; areas it did not finish: CLI and web UI code paths.
+- Codex hit its usage limit mid-review in round 1 and again at the start of the design round; the CLI and web UI code paths still have had no second-opinion review.
+- README screenshots (`docs/screenshots/`) are copied from `test-results/screenshots/` after `npm run screenshots`.
 
 ## [0.1.0] - 2026-11-22
 
