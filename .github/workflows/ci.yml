@@ -43,6 +43,10 @@ jobs:
         run: |
           set +e; head -c 3000 samples/07-outlook-sign-request.msg | node dist-cli/mailsleuth.js - 2> err.txt; code=$?; set -e
           test "$code" -eq 2 && grep -q 'damaged' err.txt
+      - name: CLI refuses empty input instead of calling it low risk
+        run: |
+          set +e; printf ' \n\n' | node dist-cli/mailsleuth.js - 2> err.txt; code=$?; set -e
+          test "$code" -eq 2 && grep -q 'empty' err.txt
       - name: CLI refuses oversized input without reading it all
         run: |
           set +e; head -c 60000000 /dev/zero | node dist-cli/mailsleuth.js -; code=$?; set -e

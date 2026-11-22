@@ -56,9 +56,15 @@ async function main(argv: string[]): Promise<number> {
     console.error(`mailsleuth: input is larger than ${MAX_INPUT_BYTES / 1024 / 1024} MB`);
     return 2;
   }
+  const binary = bytesToBinary(bytes);
+  // An empty file (a failed download or save) would otherwise be reported as "low" risk.
+  if (!binary.trim()) {
+    console.error(`mailsleuth: ${files[0] && files[0] !== '-' ? files[0] : 'input'} is empty`);
+    return 2;
+  }
   let result;
   try {
-    result = await analyze(bytesToBinary(bytes));
+    result = await analyze(binary);
   } catch (e) {
     console.error(`mailsleuth: cannot analyze ${files[0] && files[0] !== '-' ? files[0] : 'input'}: ${(e as Error).message}`);
     return 2;
