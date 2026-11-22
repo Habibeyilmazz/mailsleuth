@@ -175,7 +175,8 @@ function renderFindings(a: Analysis) {
             h('span', { class: 'points' }, f.points ? `+${f.points}` : ''),
           ),
           h('p', {}, f.explanation),
-          f.evidence.length > 0 && h('ul', { class: 'evidence' }, f.evidence.map((e) => h('li', {}, e))),
+          f.evidence.length > 0 && h('ul', { class: 'evidence' }, shown(f.evidence).map((e) => h('li', {}, e))),
+          more(f.evidence),
         )))
     : h('p', { class: 'empty' }, 'No warning signs were found by any check.');
   return section('reasons', 'Reasons', null, list,

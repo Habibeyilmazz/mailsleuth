@@ -101,8 +101,11 @@ export function htmlToText(html: string): string {
       .replace(/<[a-z/!?][^>]*(?:>|$)/gi, ' '),
   )
     .replace(/[ \t ]+/g, ' ')
-    .replace(/\s*\n\s*/g, '\n')
-    .trim();
+    // Per line, not /\s*\n\s*/: that rescans a long run of "\r" from every position.
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 // Invisible bidi overrides, embeddings and isolates ("Trojan Source" characters) reorder the text

@@ -120,13 +120,17 @@ const OFFICIAL_NAME = /\b(support|security|admin(istrator)?|help ?desk|it (dept|
 
 class Findings {
   private map = new Map<string, Finding>();
+  private seen = new Set<string>(); // id + evidence: evidence.includes() was quadratic over thousands of links
   add(id: string, evidence: string, override?: Partial<Pick<Finding, 'severity'>>) {
     const [category, severity, title, explanation] = CATALOG[id];
     const sev = override?.severity ?? severity;
     const f = this.map.get(id) ?? { id, category, severity: sev, points: POINTS[sev], title, explanation, evidence: [] };
     // A later, more severe instance (e.g. a second attached email) raises the finding.
     if (POINTS[sev] > f.points) [f.severity, f.points] = [sev, POINTS[sev]];
-    if (evidence && !f.evidence.includes(evidence)) f.evidence.push(evidence);
+    if (evidence && !this.seen.has(`${id}\0${evidence}`)) {
+      this.seen.add(`${id}\0${evidence}`);
+      f.evidence.push(evidence);
+    }
     this.map.set(id, f);
   }
   has(id: string) {
