@@ -220,6 +220,16 @@ describe('attachments', () => {
     expect(attIssues('invoice.pdf', 'MZ\x90\x00')).toEqual(['type-mismatch']);
     expect(attIssues('invoice.pdf', '%PDF-1.7')).toEqual([]);
   });
+  it('reads the extension Windows saves: trailing dots and spaces are dropped', () => {
+    expect(attIssues('setup.exe.', '')).toEqual(['executable']);
+    expect(attIssues('setup.exe . . ', '')).toEqual(['executable']);
+    expect(attIssues('invoice.pdf.exe.', '')).toEqual(['double-extension', 'executable']);
+    expect(attIssues('notes.', '')).toEqual([]);
+  });
+  it('flags Windows app installer packages', () => {
+    expect(attIssues('Update.msix', 'PK\x03\x04')).toEqual(['executable']);
+    expect(attIssues('Viewer.appxbundle', '')).toEqual(['executable']);
+  });
   it('flags programs recognized by content even without an extension', () => {
     expect(attIssues('unnamed-attachment', 'MZ\x90\x00')).toEqual(['executable']);
   });

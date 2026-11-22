@@ -33,11 +33,11 @@ export const KIND_LABEL: Record<FileKind, string> = {
   gif: 'GIF image', onenote: 'OneNote file',
 };
 
-const EXECUTABLE = new Set(['exe', 'scr', 'com', 'pif', 'bat', 'cmd', 'js', 'jse', 'vbs', 'vbe', 'wsf', 'wsh', 'hta', 'ps1', 'msi', 'jar', 'lnk', 'cpl', 'reg', 'dll', 'application', 'appref-ms', 'url', 'scf', 'msc', 'chm', 'xll', 'apk']);
+const EXECUTABLE = new Set(['exe', 'scr', 'com', 'pif', 'bat', 'cmd', 'js', 'jse', 'vbs', 'vbe', 'wsf', 'wsh', 'hta', 'ps1', 'msi', 'jar', 'lnk', 'cpl', 'reg', 'dll', 'application', 'appref-ms', 'url', 'scf', 'msc', 'chm', 'xll', 'apk', 'msix', 'msixbundle', 'appx', 'appxbundle']);
 const DISK_IMAGE = new Set(['iso', 'img', 'vhd', 'vhdx']);
 const HTML = new Set(['htm', 'html', 'shtml', 'xhtml', 'svg', 'mht', 'mhtml']);
 const MACRO_EXT = new Set(['docm', 'dotm', 'xlsm', 'xltm', 'xlam', 'pptm', 'potm', 'ppam', 'ppsm', 'sldm']);
-const DECOY_EXT = /\.(pdf|docx?|xlsx?|pptx?|txt|jpe?g|png|gif|rtf|csv|zip|wav|mp3|mp4)[\s_.]*\.([a-z0-9-]+)$/i;
+const DECOY_EXT = /\.(pdf|docx?|xlsx?|pptx?|txt|jpe?g|png|gif|rtf|csv|zip|wav|mp3|mp4)[\s_.]*\.([a-z0-9-]+)[\s.]*$/i;
 
 const EXT_KIND: Record<string, FileKind[]> = {
   pdf: ['pdf'], doc: ['ole'], xls: ['ole'], ppt: ['ole'], msg: ['ole'], rtf: ['rtf'],
@@ -111,7 +111,8 @@ function oleHas(b: Uint8Array, name: string): boolean {
 }
 
 export function extensionOf(name: string): string {
-  const m = /\.([a-z0-9-]+)\s*$/i.exec(name);
+  // Windows drops trailing dots and spaces when it saves a file, so "setup.exe." lands as setup.exe.
+  const m = /\.([a-z0-9-]+)[\s.]*$/i.exec(name);
   return m ? m[1].toLowerCase() : '';
 }
 
