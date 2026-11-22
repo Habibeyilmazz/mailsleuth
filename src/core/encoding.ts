@@ -53,7 +53,8 @@ export function decodeBase64(s: string): Uint8Array {
 }
 
 export function decodeQuotedPrintable(s: string, header = false): Uint8Array {
-  let text = header ? s.replace(/_/g, ' ') : s.replace(/=\r?\n/g, '');
+  // "=" then optional transport padding (RFC 2045 6.7) then a line break is a soft break.
+  let text = header ? s.replace(/_/g, ' ') : s.replace(/=[ \t]*\r?\n/g, '');
   text = text.replace(/=([0-9A-Fa-f]{2})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)));
   return binaryToBytes(text);
 }

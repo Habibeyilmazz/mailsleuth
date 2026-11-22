@@ -24,7 +24,8 @@ describe('encoding', () => {
     expect(decodeHeaderValue(textToBinary('Grüße'))).toBe('Grüße');
   });
   it('decodes quoted-printable soft line breaks', () => {
-    expect(dec(decodeQuotedPrintable('ab=\ncd=3D=C3=A9'))).toBe('abcd=é');
+    expect(dec(decodeQuotedPrintable('ab=\ncd=3D=C3=A9'))).toBe('abcd=é');    // RFC 2045 transport padding: whitespace after the "=" still makes a soft break; it split a link in two.
+    expect(dec(decodeQuotedPrintable('https://www.paypa= \t\r\n1-secure.example/'))).toBe('https://www.paypa1-secure.example/');
   });
   it('leaves unknown entities and Object.prototype names alone', () => {
     expect(htmlToText('a &constructor; b &colon;')).toBe('a &constructor; b :');
