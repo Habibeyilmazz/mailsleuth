@@ -66,7 +66,14 @@ try {
       await page.selectOption('#sample', { value: `../../samples/${file}` });
       await page.click('#load-sample');
       await page.waitForSelector('#verdict-h');
-      check(`${name} sample ${file}`, await shown(page), expected(cli(`samples/${file}`)));
+      const want = cli(`samples/${file}`);
+      check(`${name} sample ${file}`, await shown(page), expected(want));
+      // A forwarded report: open the attached email from its card.
+      if (want.attachments[0]?.email) {
+        await page.click('text=Analyze attached email');
+        await page.waitForSelector('.crumbs button');
+        check(`${name} sample ${file}, attached email`, await shown(page), expected(want.attachments[0].email));
+      }
       await page.click('text=Analyze another email');
     }
 
@@ -91,7 +98,7 @@ try {
     check(`${name} paste`, await shown(page), expected(JSON.parse(execFileSync('node', ['dist-cli/mailsleuth.js', '--compact', '-'], { input: pasted }).toString())));
 
     await browser.close();
-    console.log(`${name}: ${samples.length} samples, 2 files, 1 paste checked`);
+    console.log(`${name}: ${samples.length} samples (and the attached email), 2 files, 1 PDF, 1 paste checked`);
   }
 } finally {
   server.close();
