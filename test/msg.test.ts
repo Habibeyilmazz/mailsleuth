@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
 import { bytesToBinary } from '../src/core/encoding';
 import { parseMessage, walkParts } from '../src/core/mime';
-import { decompressRtf, readMsg, rtfToHtml } from '../src/core/msg';
-import { makeCfb, makeMsg, type MsgSpec } from '../scripts/msg.ts';
+import { decompressRtf, readMsg, rtfBody } from '../src/core/msg';
+import { compressRtf, makeCfb, makeMsg, type MsgSpec } from '../scripts/msg.ts';
 
 const enc = new TextEncoder();
 const sampleBytes = new Uint8Array(readFileSync(new URL('../samples/07-outlook-sign-request.msg', import.meta.url)));
@@ -35,7 +35,7 @@ describe('Outlook .msg files', () => {
     expect(a.hops).toHaveLength(2);
     expect(a.auth.verified).toBe(true);
     expect(ids(a)).toEqual(expect.arrayContaining(['dmarc-fail', 'spf-fail', 'display-name-brand', 'brand-in-domain', 'text-mismatch', 'html-attachment', 'language-credentials', 'outlook-msg']));
-    expect(a.findings.find((f) => f.id === 'outlook-msg')!.evidence).toEqual(['message text: HTML recovered from Outlook\'s rich-text (RTF) body']);
+    expect(a.findings.find((f) => f.id === 'outlook-msg')!.evidence).toEqual(['message text: plain text, HTML recovered from the rich-text (RTF) body']);
     expect(a.links.find((l) => l.source === 'html')).toMatchObject({ host: 'sign-docs.example', text: 'https://www.docusign.net/Signing/?ti=7f3a' });
     expect(a.attachments.map((x) => [x.filename, x.contentType])).toEqual([['Payroll_Adjustment.htm', 'text/html']]);
     expect(a.attachments[0].sha256).toMatch(/^[0-9a-f]{64}$/);
@@ -46,7 +46,7 @@ describe('Outlook .msg files', () => {
 
   it('recovers the HTML Outlook encapsulated in compressed RTF', () => {
     const r = readMsg(sampleBytes)!;
-    expect(r).toMatchObject({ bodyFrom: 'rtf', transportHeaders: true });
+    expect(r).toMatchObject({ bodies: ['plain text', 'HTML recovered from the rich-text (RTF) body'], transportHeaders: true, notExtracted: [] });
     const html = [...walkParts(parseMessage(r.mime))].find((p) => p.contentType === 'text/html')!;
     expect(html.params['charset']).toBe('windows-1252');
     // RTFDE, the de-encapsulator Python's extract-msg uses, recovers the same HTML from this file (with "–" for &#8211;).
@@ -60,16 +60,76 @@ describe('Outlook .msg files', () => {
     const raw = new TextDecoder().decode(decompressRtf(vector));
     expect(raw).toHaveLength(312);
     expect(raw.startsWith('{\\rtf1\\ansi\\ansicpg1252\\fromhtml1')).toBe(true);
-    expect(rtfToHtml(enc.encode(raw))!.html).toBe('<a href="https://evil.example/login">paypal.com</a><a href="https://evil.example/login">paypal.com</a>');
+    expect(rtfBody(enc.encode(raw))!.body).toBe('<a href="https://evil.example/login">paypal.com</a><a href="https://evil.example/login">paypal.com</a>');
     // Uncompressed ("MELA") RTF is stored as is.
-    const mela = new Uint8Array([10, 0, 0, 0, 3, 0, 0, 0, 0x4d, 0x45, 0x4c, 0x41, 0, 0, 0, 0, 0x7b, 0x5c, 0x72]);
+    const mela = new Uint8Array([15, 0, 0, 0, 3, 0, 0, 0, 0x4d, 0x45, 0x4c, 0x41, 0, 0, 0, 0, 0x7b, 0x5c, 0x72]);
     expect(new TextDecoder().decode(decompressRtf(mela))).toBe('{\\r');
-    expect(rtfToHtml(enc.encode('{\\rtf1\\ansi plain rich text}'))).toBeNull();
+    expect(rtfBody(enc.encode('not rtf'))).toBeNull();
+    // Damage must not silently cut the body short: a wrong CRC (or a truncated stream) is refused.
+    const flipped = vector.slice();
+    flipped[100] ^= 1;
+    expect(() => decompressRtf(flipped)).toThrow(/CRC/);
+    expect(() => decompressRtf(vector.subarray(0, 120))).toThrow(/CRC/);
   });
 
   it('handles \\u escapes, hex bytes and the RTF code page', () => {
-    const r = rtfToHtml(enc.encode("{\\rtf1\\ansi\\ansicpg1251\\fromhtml1 {\\*\\htmltag64 <p>}\\'cf\\u1055?x\\bin3 {}{\\*\\generator junk}}"))!;
-    expect(r).toEqual({ html: '<p>\xcf&#1055;x', charset: 'windows-1251' });
+    const r = rtfBody(enc.encode("{\\rtf1\\ansi\\ansicpg1251\\fromhtml1 {\\*\\htmltag64 <p>}\\'cf\\u1055?x\\bin3 {}{\\*\\generator junk}}"))!;
+    expect(r).toEqual({ contentType: 'text/html; charset=windows-1251', body: '<p>\xcf&#1055;x' });
+    // The fallback after \uN counts a control word as one character and ends at a brace, so it cannot eat a "<".
+    expect(rtfBody(enc.encode('{\\rtf1\\fromhtml1 {\\*\\htmltag84 \\uc1\\u65\\b <a href="https://evil.example/">}}'))!.body).toBe('&#65;<a href="https://evil.example/">');
+    expect(rtfBody(enc.encode('{\\rtf1\\fromhtml1 {\\u65}{\\*\\htmltag84 <a href="https://evil.example/">}}'))!.body).toBe('&#65;<a href="https://evil.example/">');
+  });
+
+  it('finds \\fromhtml1 after a padded RTF header and keeps the bytes of an attachment tagged multipart', async () => {
+    const padded = rtfBody(enc.encode(`{\\rtf1\\ansi${'\\deff0'.repeat(100)}\\fromhtml1 {\\*\\htmltag84 <a href="https://evil.example/">}x}`));
+    expect(padded?.body).toBe('<a href="https://evil.example/">x');
+    const html = '<html><form>x</form></html>';
+    const a = await run(makeMsg({ strings: { 0x0037: 's' }, attachments: [{ strings: { 0x3707: 'payload.html', 0x370e: 'multipart/mixed' }, binaries: { 0x3701: enc.encode(html) } }] }));
+    expect(a.attachments[0]).toMatchObject({ filename: 'payload.html', contentType: 'application/octet-stream', size: html.length });
+    expect(a.attachments[0].issues.map((i) => i.id)).toContain('html-attachment');
+  });
+
+  it('reads ordinary RTF bodies as text, keeping link targets', () => {
+    const r = rtfBody(enc.encode('{\\rtf1\\ansi\\ansicpg1252{\\fonttbl{\\f0 Arial;}}Pay {\\field{\\*\\fldinst{HYPERLINK "https://evil.example/"}}{\\fldrslt here}} now \\u8364?5\\par}'))!;
+    expect(r.contentType).toBe('text/plain; charset=utf-8');
+    expect(new TextDecoder().decode(Buffer.from(r.body, 'latin1'))).toBe('Pay HYPERLINK "https://evil.example/"here now €5\r\n');
+  });
+
+  it('checks every stored body, since Outlook may show the RTF one instead of the HTML', async () => {
+    const rtf = compressRtf(enc.encode('{\\rtf1\\ansi\\fromhtml1 {\\*\\htmltag84 <a href="https://evil.example/">}www.paypal.com{\\*\\htmltag92 </a>}}'));
+    const a = await run(makeMsg({ strings: { 0x0037: 'Hi', 0x1000: 'Nothing to see.' }, binaries: { 0x1013: enc.encode('<p>Nothing to see.</p>'), 0x1009: rtf } }));
+    expect(a.links.map((l) => l.host)).toEqual(['evil.example']);
+    expect(ids(a)).toContain('text-mismatch');
+  });
+
+  it('names attachments it cannot extract instead of saying there are none', async () => {
+    const a = await run(makeMsg({
+      strings: { 0x0037: 'Hi' },
+      attachments: [
+        { strings: { 0x3707: 'report.doc' }, longs: { 0x3705: 6 }, ole: [{ name: 'WordDocument', data: new Uint8Array(10) }] },
+        { strings: { 0x3707: 'Q4.xlsx' }, longs: { 0x3705: 7 } },
+      ],
+    }));
+    expect(a.attachments).toEqual([]);
+    expect(a.reassurances.join(' ')).not.toContain('no attachments');
+    expect(a.findings.find((f) => f.id === 'msg-no-headers')!.evidence).toEqual([
+      'message text: none stored',
+      'attachment not extracted, check it in Outlook: report.doc (embedded OLE object)',
+      'attachment not extracted, check it in Outlook: Q4.xlsx (no file data in the .msg, for example a link to a cloud file)',
+    ]);
+  });
+
+  it('refuses a stream whose sector chain ends early, a v4 size over 4 GB, and survives unknown code pages', () => {
+    const short = makeMsg({ strings: { 0x0037: 'x' }, attachments: [{ binaries: { 0x3701: new Uint8Array(5000) } }] });
+    const v = new DataView(short.buffer);
+    const [att] = entryOffsets(short, '__substg1.0_37010102');
+    v.setUint32((v.getUint32(0x4c, true) + 1) * 512 + v.getUint32(att + 0x74, true) * 4, 0xfffffffe, true);
+    expect(() => readMsg(short)).toThrow(/ends before its stated size/);
+    const v4 = makeMsg(phish, 12);
+    const [html] = entryOffsets(v4, '__substg1.0_10130102');
+    new DataView(v4.buffer).setUint32(html + 0x7c, 1, true);
+    expect(() => readMsg(v4)).toThrow(/over 4 GB/);
+    expect(() => readMsg(makeMsg({ ansi: { 0x0037: new Uint8Array([0x41]) }, longs: { 0x3ffd: 28606 } }))).not.toThrow();
   });
 
   it('analyzes an email attached inside a .msg (a user report saved from Outlook)', async () => {

@@ -1,6 +1,6 @@
 // Outlook .msg support: a Compound File (MS-CFB) holding MAPI properties (MS-OXMSG).
 // The message is rebuilt as MIME text so the rest of the analyzer runs on it unchanged.
-import { bytesToBinary } from './encoding';
+import { binaryToBytes, bytesToBinary, decodeCharset } from './encoding';
 
 const CFB_MAGIC = '\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1';
 const END = 0xfffffffe;
@@ -68,7 +68,8 @@ class Cfb {
         right: d.getUint32(0x48, true),
         child: d.getUint32(0x4c, true),
         start: d.getUint32(0x74, true),
-        size: d.getUint32(0x78, true), // high 32 bits ignored: no email is 4 GB
+        // Version 3 files may leave junk in the high 32 bits; in version 4 they are real, and no email is 4 GB.
+        size: shift === 12 && d.getUint32(0x7c, true) ? Infinity : d.getUint32(0x78, true),
       });
     }
     const root = this.entries[0];
@@ -88,7 +89,7 @@ class Cfb {
     return at;
   }
 
-  /** Follows a FAT chain; a loop or a chain past the end of the file is damage. */
+  /** Follows a FAT chain; a loop, a chain past the end of the file or one shorter than its stream is damage. */
   private chain(start: number, size: number): Uint8Array {
     const parts: Uint8Array[] = [];
     let total = 0;
@@ -99,6 +100,7 @@ class Cfb {
       total += this.sectorSize;
       s = s < this.fat.length ? this.fat[s] : END;
     }
+    if (size !== Infinity && total < size) throw new Error('stream ends before its stated size');
     return this.take(parts, Math.min(size, total));
   }
 
@@ -117,6 +119,7 @@ class Cfb {
 
   read(e: Entry): Uint8Array {
     if (e.type !== 2) return new Uint8Array();
+    if (e.size === Infinity) throw new Error('stream size is over 4 GB');
     if (e.size >= 4096) return this.chain(e.start, e.size);
     const parts: Uint8Array[] = [];
     let total = 0;
@@ -126,7 +129,8 @@ class Cfb {
       total += 64;
       s = s < this.miniFat.length ? this.miniFat[s] : END;
     }
-    return this.take(parts, Math.min(e.size, total));
+    if (total < e.size) throw new Error('stream ends before its stated size');
+    return this.take(parts, e.size);
   }
 
   /** Direct children of a storage (an in-order walk of its sibling tree); each entry is listed once per file. */
@@ -197,7 +201,7 @@ class PropBag {
     const u = this.stream(id, '001F');
     if (u) return new TextDecoder('utf-16le').decode(this.cfb.read(u)).replace(/\0+$/, '');
     const a = this.stream(id, '001E');
-    if (a) return new TextDecoder(codepageLabel(this.long(0x3ffd) ?? 1252)).decode(this.cfb.read(a)).replace(/\0+$/, '');
+    if (a) return decodeCharset(this.cfb.read(a), codepageLabel(this.long(0x3ffd) ?? 1252)).replace(/\0+$/, '');
     return null;
   }
 
@@ -219,57 +223,90 @@ class PropBag {
 
 const RTF_DICT = '{\\rtf1\\ansi\\mac\\deff0\\deftab720{\\fonttbl;}{\\f0\\fnil \\froman \\fswiss \\fmodern \\fscript \\fdecor MS Sans SerifSymbolArialTimes New RomanCourier{\\colortbl\\red0\\green0\\blue0\r\n\\par \\pard\\plain\\f0\\fs20\\b\\i\\u\\tab\\tx';
 
+let crcTable: Uint32Array | null = null;
+function crc32(b: Uint8Array): number {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1;
+      crcTable[n] = c >>> 0;
+    }
+  }
+  let crc = 0; // this format starts at 0 and has no final XOR
+  for (const x of b) crc = crcTable[(crc ^ x) & 255] ^ (crc >>> 8);
+  return crc >>> 0;
+}
+
+/** Throws on a damaged body rather than returning the part before the damage, which could hide the rest. */
 export function decompressRtf(b: Uint8Array): Uint8Array {
-  if (b.length < 16) return new Uint8Array();
+  if (b.length < 16) throw new Error('compressed RTF is cut short');
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const rawSize = Math.min(v.getUint32(4, true), b.length * 9); // a 2-byte reference expands to at most 17 bytes
+  const end = Math.min(b.length, 4 + v.getUint32(0, true));
+  const rawSize = v.getUint32(4, true);
   const type = v.getUint32(8, true);
-  if (type === 0x414c454d) return b.slice(16, 16 + rawSize); // "MELA": stored uncompressed
-  if (type !== 0x75465a4c) return new Uint8Array(); // not "LZFu"
+  if (type === 0x414c454d) return b.slice(16, Math.min(16 + rawSize, end)); // "MELA": stored uncompressed
+  if (type !== 0x75465a4c) throw new Error('unknown RTF compression'); // not "LZFu"
+  if (crc32(b.subarray(16, end)) !== v.getUint32(12, true)) throw new Error('compressed RTF fails its CRC check');
   const dict = new Uint8Array(4096);
   for (let i = 0; i < RTF_DICT.length; i++) dict[i] = RTF_DICT.charCodeAt(i);
   let w = RTF_DICT.length;
-  const out = new Uint8Array(rawSize);
+  let out = new Uint8Array(Math.min(Math.max(rawSize, 4096), (end - 16) * 9)); // a 2-byte reference expands to at most 17 bytes
   let o = 0;
-  let p = 16;
-  while (p < b.length && o < rawSize) {
+  const put = (x: number) => {
+    if (o === out.length) {
+      const grown = new Uint8Array(out.length * 2);
+      grown.set(out);
+      out = grown;
+    }
+    out[o++] = dict[w] = x;
+    w = (w + 1) & 4095;
+  };
+  for (let p = 16; p < end; ) {
     const control = b[p++];
-    for (let bit = 0; bit < 8 && p < b.length && o < rawSize; bit++) {
+    for (let bit = 0; bit < 8 && p < end; bit++) {
       if (!(control & (1 << bit))) {
-        out[o++] = dict[w] = b[p++];
-        w = (w + 1) & 4095;
+        put(b[p++]);
         continue;
       }
-      if (p + 1 >= b.length) return out.slice(0, o);
+      if (p + 1 >= end) throw new Error('compressed RTF is cut short');
       const ref = (b[p] << 8) | b[p + 1];
       p += 2;
       let from = ref >> 4;
       if (from === w) return out.slice(0, o); // end marker
-      for (let n = (ref & 15) + 2; n > 0 && o < rawSize; n--) {
-        out[o++] = dict[w] = dict[from];
+      for (let n = (ref & 15) + 2; n > 0; n--) {
+        put(dict[from]);
         from = (from + 1) & 4095;
-        w = (w + 1) & 4095;
       }
     }
   }
-  return out.slice(0, o);
+  throw new Error('compressed RTF has no end marker');
 }
 
-// ---------- HTML encapsulated in RTF (MS-OXRTFEX) ----------
+// ---------- RTF bodies: HTML encapsulated in RTF (MS-OXRTFEX), or plain rich text ----------
 
 const SKIP_GROUPS = new Set(['fonttbl', 'colortbl', 'stylesheet', 'info', 'pict', 'object', 'header', 'footer', 'listtable', 'listoverridetable', 'mhtmltag']);
 const SYMBOLS: Record<string, string> = { par: '\r\n', line: '\r\n', tab: '\t', lquote: '&#8216;', rquote: '&#8217;', ldblquote: '&#8220;', rdblquote: '&#8221;', bullet: '&#8226;', endash: '&#8211;', emdash: '&#8212;' };
 
-/** The original HTML of an Outlook "\fromhtml" RTF body, or null for ordinary RTF. Output is in the RTF's code page. */
-export function rtfToHtml(rtfBytes: Uint8Array): { html: string; charset: string } | null {
+/**
+ * The body Outlook shows for an RTF property: the original HTML of a "\fromhtml1" body (in the RTF's
+ * code page), or for ordinary RTF its text, with HYPERLINK targets kept so their URLs get checked.
+ * Null when the bytes are not RTF.
+ */
+export function rtfBody(rtfBytes: Uint8Array): { contentType: string; body: string } | null {
   const rtf = bytesToBinary(rtfBytes);
-  if (!/^\{\\rtf1[^{]{0,200}\\fromhtml1/.test(rtf)) return null;
-  const cp = /\\ansicpg(\d+)/.exec(rtf.slice(0, 200));
+  if (!rtf.startsWith('{\\rtf1')) return null;
+  // The header (everything before the first HTML tag) can be padded, so do not look only at its start.
+  const tagAt = rtf.indexOf('{\\*\\htmltag');
+  const header = rtf.slice(0, tagAt < 0 ? rtf.length : tagAt);
+  const isHtml = header.includes('\\fromhtml1');
+  const cp = /\\ansicpg(\d{1,5})/.exec(header);
+  const charset = codepageLabel(cp ? Number(cp[1]) : 1252);
   interface State { skip: boolean; tag: boolean; suppressed: boolean; uc: number }
   let st: State = { skip: false, tag: false, suppressed: false, uc: 1 };
   const stack: State[] = [];
   let groupStart = false;
-  let fallback = 0; // characters to drop after \uN
+  let fallback = 0; // tokens to drop after \uN; a control word counts as one, a brace ends them
   let out = '';
   const emit = (s: string) => {
     if (fallback > 0) fallback--;
@@ -277,16 +314,11 @@ export function rtfToHtml(rtfBytes: Uint8Array): { html: string; charset: string
   };
   for (let i = 0; i < rtf.length; ) {
     const c = rtf[i];
-    if (c === '{') {
-      stack.push(st);
-      st = { ...st };
-      groupStart = true;
-      i++;
-      continue;
-    }
-    if (c === '}') {
-      if (stack.length) st = stack.pop()!;
-      groupStart = false;
+    if (c === '{' || c === '}') {
+      if (c === '{') stack.push({ ...st });
+      else if (stack.length) st = stack.pop()!;
+      groupStart = c === '{';
+      fallback = 0;
       i++;
       continue;
     }
@@ -303,30 +335,30 @@ export function rtfToHtml(rtfBytes: Uint8Array): { html: string; charset: string
     const m = /^\\([a-z]{1,32})(-?\d{1,10})? ?/.exec(rtf.slice(i, i + 48));
     if (!m) {
       const sym = rtf[i + 1] ?? '';
+      groupStart = false;
       if (sym === "'") {
-        groupStart = false;
         emit(String.fromCharCode(parseInt(rtf.slice(i + 2, i + 4), 16) || 0));
         i += 4;
-      } else if (sym === '*') {
-        i += 2; // the next control word decides: \htmltag is kept, other "\*" destinations skipped
-        const next = /^\\([a-z]+)/.exec(rtf.slice(i, i + 40));
-        if (next?.[1] === 'htmltag') st.tag = true;
-        else st.skip = true;
-        groupStart = false;
-      } else {
-        groupStart = false;
-        if (sym === '~') emit('&#160;');
-        else if (sym === '{' || sym === '}' || sym === '\\') emit(sym);
-        else if (sym === '\r' || sym === '\n') emit('\r\n');
-        i += 2;
+        continue;
       }
+      i += 2;
+      if (sym === '*') {
+        // The next control word decides: \htmltag (HTML bodies) and \fldinst (link targets in plain RTF) are kept.
+        const next = /^\\([a-z]+)/.exec(rtf.slice(i, i + 40))?.[1];
+        if (isHtml && next === 'htmltag') st.tag = true;
+        else if (isHtml || next !== 'fldinst') st.skip = true;
+      } else if (sym === '~') emit('&#160;');
+      else if (sym === '{' || sym === '}' || sym === '\\') emit(sym);
+      else if (sym === '\r' || sym === '\n') emit('\r\n');
+      else if (fallback > 0) fallback--;
       continue;
     }
     i += m[0].length;
     const [, word, arg] = m;
     if (groupStart && SKIP_GROUPS.has(word)) st.skip = true;
     groupStart = false;
-    if (word === 'htmlrtf') st.suppressed = arg !== '0';
+    if (fallback > 0 && !Object.hasOwn(SYMBOLS, word)) fallback--;
+    else if (word === 'htmlrtf') st.suppressed = isHtml && arg !== '0';
     else if (word === 'uc') st.uc = Math.max(0, Number(arg) || 0);
     else if (word === 'u' && arg) {
       emit(`&#${(Number(arg) + 65536) % 65536};`);
@@ -334,7 +366,10 @@ export function rtfToHtml(rtfBytes: Uint8Array): { html: string; charset: string
     } else if (word === 'bin' && arg) i += Math.max(0, Number(arg));
     else if (Object.hasOwn(SYMBOLS, word)) emit(SYMBOLS[word]);
   }
-  return { html: out, charset: codepageLabel(cp ? Number(cp[1]) : 1252) };
+  if (isHtml) return { contentType: `text/html; charset=${charset}`, body: out };
+  // Plain text has no entities: resolve the ones written above and re-encode as UTF-8.
+  const text = decodeCharset(binaryToBytes(out), charset).replace(/&#(\d{1,5});/g, (_, n: string) => String.fromCharCode(Number(n)));
+  return { contentType: 'text/plain; charset=utf-8', body: utf8(text) };
 }
 
 // ---------- MIME reconstruction ----------
@@ -344,7 +379,10 @@ export interface MsgResult {
   mime: string;
   /** Whether Outlook kept the original internet headers (PidTagTransportMessageHeaders). */
   transportHeaders: boolean;
-  bodyFrom: 'html' | 'rtf' | 'text' | 'none';
+  /** Which stored bodies were found; all of them are analyzed, since Outlook may show any one. */
+  bodies: string[];
+  /** Attachments with no extractable file, with the reason. */
+  notExtracted: string[];
 }
 
 const STRUCTURE_HEADER = /^(content-type|content-transfer-encoding|content-disposition)\s*:/i;
@@ -402,22 +440,25 @@ function build(cfb: Cfb, msg: PropBag, depth: number): MsgResult {
     if (id) headerLines.push(`Message-ID: ${oneLine(id)}`);
   }
 
+  // Outlook shows one of these bodies (PidTagNativeBody picks which), and a crafted file can make them differ: check all.
   const parts: string[] = [];
+  const bodies: string[] = [];
+  const notExtracted: string[] = [];
   const text = msg.string(0x1000);
-  if (text) parts.push(part('text/plain; charset=utf-8', utf8(text)));
-  let bodyFrom: MsgResult['bodyFrom'] = text ? 'text' : 'none';
+  if (text) {
+    parts.push(part('text/plain; charset=utf-8', utf8(text)));
+    bodies.push('plain text');
+  }
   const htmlBin = msg.binary(0x1013);
   const htmlStr = htmlBin ? null : msg.string(0x1013);
   if (htmlBin) parts.push(part(`text/html; charset=${codepageLabel(msg.long(0x3fde) ?? 65001)}`, bytesToBinary(htmlBin)));
   else if (htmlStr) parts.push(part('text/html; charset=utf-8', utf8(htmlStr)));
-  if (htmlBin || htmlStr) bodyFrom = 'html';
-  else {
-    const rtf = msg.binary(0x1009);
-    const html = rtf && rtfToHtml(decompressRtf(rtf));
-    if (html) {
-      parts.push(part(`text/html; charset=${html.charset}`, html.html));
-      bodyFrom = 'rtf';
-    }
+  if (htmlBin || htmlStr) bodies.push('HTML');
+  const rtf = msg.binary(0x1009);
+  const fromRtf = rtf && rtfBody(decompressRtf(rtf));
+  if (fromRtf) {
+    parts.push(part(fromRtf.contentType, fromRtf.body));
+    bodies.push(fromRtf.contentType.startsWith('text/html') ? 'HTML recovered from the rich-text (RTF) body' : 'rich text (RTF)');
   }
 
   for (const a of msg.storages('__ATTACH_VERSION1.0_#')) {
@@ -426,19 +467,27 @@ function build(cfb: Cfb, msg: PropBag, depth: number): MsgResult {
     const data = att.binary(0x3701);
     if (data) {
       const type = (att.string(0x370e) ?? '').trim().toLowerCase();
-      parts.push(part(/^[\w.+-]+\/[\w.+-]+$/.test(type) ? type : 'application/octet-stream', bytesToBinary(data), name || 'unnamed-attachment'));
+      // A stored "multipart/..." tag would make the parser look for sub-parts and drop the file's bytes.
+      parts.push(part(/^[\w.+-]+\/[\w.+-]+$/.test(type) && !type.startsWith('multipart/') ? type : 'application/octet-stream', bytesToBinary(data), name || 'unnamed-attachment'));
       continue;
     }
-    const inner = depth < MAX_EMBED_DEPTH ? att.sub(0x3701, '000D', 24) : null;
-    // shortcut: OLE-object and by-reference attachments (no 0x3701 bytes, or a non-message storage) are left out; rare in mail.
-    if (inner?.isMessage()) parts.push(part('message/rfc822', build(cfb, inner, depth + 1).mime, `${(name || 'attached-message').replace(/\.msg$/i, '')}.eml`));
+    const obj = att.sub(0x3701, '000D', 24);
+    if (obj?.isMessage() && depth < MAX_EMBED_DEPTH) {
+      const inner = build(cfb, obj, depth + 1);
+      parts.push(part('message/rfc822', inner.mime, `${(name || 'attached-message').replace(/\.msg$/i, '')}.eml`));
+      notExtracted.push(...inner.notExtracted.map((x) => `${name || 'attached message'} › ${x}`));
+      continue;
+    }
+    // shortcut: OLE objects and by-reference attachments are named, not unpacked; repacking a storage needs a CFB writer in the app.
+    const why = obj?.isMessage() ? 'attached email nested too deeply' : obj ? 'embedded OLE object' : 'no file data in the .msg, for example a link to a cloud file';
+    notExtracted.push(`${name || 'unnamed attachment'} (${why})`);
   }
 
   const boundary = `=_mailsleuth_msg_${depth}`; // base64 bodies can never contain "=_"
   // Header text is Unicode (UTF-16 properties); MIME source is bytes, and RFC 6532 allows UTF-8 headers.
   const head = utf8([...headerLines, `Content-Type: multipart/mixed; boundary="${boundary}"`].join('\r\n'));
   const mime = [head, '', ...parts.flatMap((p) => [`--${boundary}`, p]), `--${boundary}--`, ''].join('\r\n');
-  return { mime, transportHeaders: !!raw?.trim(), bodyFrom };
+  return { mime, transportHeaders: !!raw?.trim(), bodies, notExtracted };
 }
 
 /** Rebuilds an Outlook .msg as MIME, or returns null when the compound file is not a message (e.g. a .doc). Throws on a damaged file. */

@@ -145,7 +145,8 @@ export interface MsgSpec {
   longs?: Record<number, number>;
   times?: Record<number, Date>;
   recipients?: MsgSpec[];
-  attachments?: (MsgSpec & { embedded?: MsgSpec })[];
+  /** embedded: an attached message; ole: the storage of an embedded OLE object. */
+  attachments?: (MsgSpec & { embedded?: MsgSpec; ole?: CfbNode[] })[];
 }
 
 const hex = (n: number, w: number) => n.toString(16).toUpperCase().padStart(w, '0');
@@ -178,6 +179,7 @@ function msgNodes(spec: MsgSpec, headerSize: number): CfbNode[] {
     if (a.embedded) {
       kids.push({ name: '__substg1.0_3701000D', children: msgNodes(a.embedded, 24) });
     }
+    if (a.ole) kids.push({ name: '__substg1.0_3701000D', children: a.ole });
     nodes.push({ name: `__attach_version1.0_#${hex(i, 8)}`, children: kids });
   });
   const head = new Uint8Array(headerSize);

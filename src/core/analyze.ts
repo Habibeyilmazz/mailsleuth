@@ -285,7 +285,7 @@ function nextSteps(level: Analysis['level'], f: Findings, attachments: Attachmen
   return steps;
 }
 
-function reassurances(auth: AuthReport, links: LinkInfo[], attachments: AttachmentInfo[]): string[] {
+function reassurances(auth: AuthReport, links: LinkInfo[], attachments: AttachmentInfo[], unextracted = 0): string[] {
   const out: string[] = [];
   const dmarc = resultFor(auth, 'dmarc');
   if (!auth.verified) {
@@ -296,18 +296,11 @@ function reassurances(auth: AuthReport, links: LinkInfo[], attachments: Attachme
     out.push(`A valid DKIM signature from the From domain (${auth.alignment.fromDomain}) is present.`);
   }
   if (!links.length) out.push('The email contains no links.');
-  if (!attachments.length) out.push('The email has no attachments.');
+  if (!attachments.length && !unextracted) out.push('The email has no attachments.');
   return out;
 }
 
 const MAX_NESTING = 3;
-const MSG_BODY: Record<MsgResult['bodyFrom'], string> = {
-  html: 'message text: the HTML body Outlook stored',
-  rtf: 'message text: HTML recovered from Outlook\'s rich-text (RTF) body',
-  text: 'message text: plain text only (links in it are checked, but not where formatted links really point)',
-  none: 'Outlook stored no message text',
-};
-
 /** Outlook .msg input becomes MIME; other Office compound files (.doc, .xls) are refused. */
 function fromMsg(binary: string): MsgResult {
   let msg: MsgResult | null;
@@ -401,7 +394,11 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const f = new Findings();
   const dmarcPass = resultFor(auth, 'dmarc')?.result === 'pass';
   senderChecks(f, summary, dmarcPass);
-  if (msg) f.add(msg.transportHeaders ? 'outlook-msg' : 'msg-no-headers', MSG_BODY[msg.bodyFrom]);
+  if (msg) {
+    const id = msg.transportHeaders ? 'outlook-msg' : 'msg-no-headers';
+    f.add(id, `message text: ${msg.bodies.join(', ') || 'none stored'}`);
+    for (const x of msg.notExtracted) f.add(id, `attachment not extracted, check it in Outlook: ${x}`);
+  }
   if (!h.length) f.add('no-headers', '');
   else if (msg?.transportHeaders !== false) authChecks(f, auth); // a .msg without headers has nothing to check
   linkChecks(f, links);
@@ -427,7 +424,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     level,
     verdict,
     findings,
-    reassurances: reassurances(auth, links, attachments),
+    reassurances: reassurances(auth, links, attachments, msg?.notExtracted.length ?? 0),
     nextSteps: nextSteps(level, f, attachments, links),
     auth,
     hops,

@@ -44,6 +44,7 @@ try {
     console.log(`${file}: ${level}, score ${await page.textContent('.score-n')}`);
     await page.screenshot({ path: `${outDir}/${file.replace(/\.(eml|msg)$/, '')}.png`, fullPage: true });
     if (file.startsWith('01-')) await page.screenshot({ path: `${outDir}/result.png` });
+    if (file.endsWith('.msg')) await page.screenshot({ path: `${outDir}/msg-result.png` });
     // The sticky verdict column can be taller than the window: its last step must be reachable by keyboard.
     await page.evaluate(() => window.scrollTo(0, 1200));
     await page.keyboard.press('Shift+Tab'); // from the focused verdict heading to its scrollable column

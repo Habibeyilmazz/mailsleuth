@@ -20,15 +20,16 @@ npm ci
 npm run dev          # web app on http://localhost:4190
 ```
 
-Pick one of the synthetic samples on the start page, drop your own `.eml` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). Headers alone also work; body text alone (no headers) gets only the link and wording checks.
+Pick one of the synthetic samples on the start page, drop your own `.eml` or Outlook `.msg` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). In Outlook for Windows you can drag a message from the list straight onto the page; that gives a `.msg` file. Headers alone also work; body text alone (no headers) gets only the link and wording checks.
 
-More screenshots: [start page](docs/screenshots/home.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
+More screenshots: [start page](docs/screenshots/home.png), [an Outlook .msg file](docs/screenshots/msg-result.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
 
 ### Command line
 
 ```sh
 npm run build:cli
 node dist-cli/mailsleuth.js samples/01-paypal-lookalike.eml          # pretty JSON
+node dist-cli/mailsleuth.js samples/07-outlook-sign-request.msg       # Outlook .msg works the same way
 cat message.eml | node dist-cli/mailsleuth.js --compact - | jq '.score, .level, [.findings[].id]'
 ```
 
@@ -53,7 +54,8 @@ npm run build        # web app in dist/, CLI in dist-cli/
 | Links | Text that shows one site while linking to another; Microsoft Safe Links, Proofpoint URL Defense (v2/v3), Google and Facebook redirects unwrapped before checking; shorteners; bare and disguised IP addresses (`http://3325256727/`); `user@host` tricks; `data:` and `javascript:` links; open redirects; direct links to risky file types |
 | Attachments | SHA-256 of each file; type detected from content, not the name; VBA macros found by structure (OOXML `vbaProject.bin`, OLE `_VBA_PROJECT`); double extensions; hidden right-to-left characters; executables and scripts, ISO/IMG/VHD, LNK, OneNote, HTML/SVG; ZIP contents listed, risky entries and password protection flagged; content that does not match the extension |
 | Language | English phrases for credential phishing, money requests (gift cards, bank-detail changes), urgency/secrecy and threats; every match is quoted |
-| Forwarded reports | An email attached as `message/rfc822` (how users report phishing) gets its own full analysis; in the UI, "Analyze attached email" opens it |
+| Forwarded reports | An email attached as `message/rfc822` or as an Outlook `.msg` file (how users report phishing) gets its own full analysis; in the UI, "Analyze attached email" opens it |
+| Outlook `.msg` | Read without Outlook: the internet headers Outlook kept, every stored body (plain text, HTML, and compressed RTF, including HTML encapsulated in it as in most `.msg` files; all are checked because Outlook may show any of them), attachments and attached messages. The message is rebuilt as MIME and goes through every check above. Without stored internet headers (drafts, sent items, some internal mail), the sender, recipients and subject Outlook stored are used and the report says that authentication could not be checked. A damaged file (broken sector chain, failed RTF checksum) is refused rather than half-read |
 
 Each finding adds points by severity (high 25, medium 12, low 5, capped at 100): 0–19 is low risk, 20–49 suspicious, 50+ high risk. The page shows each finding's share of the score, what it means, the exact evidence, things in the email's favour, and what to do next. It never says an email is safe or malicious: passing every check does not make a message honest, and legitimate mail can trip some checks.
 
@@ -74,6 +76,7 @@ src/core/      shared by web and CLI, no dependencies
   auth.ts        Authentication-Results / ARC parser and plain-English explanations
   domains.ts     registrable domain, brand look-alike and homoglyph detection
   punycode.ts    RFC 3492 decoder
+  msg.ts         Outlook .msg: Compound File reader, MAPI properties, compressed RTF, HTML-in-RTF -> MIME
   urls.ts        link extraction, wrapper unwrapping, link tricks
   attachments.ts magic-byte sniffing, ZIP central directory, macro detection
   language.ts    phrase patterns
@@ -87,7 +90,7 @@ Raw input is kept as a byte-per-character string so MIME offsets stay exact; tex
 
 ## Samples
 
-`samples/` holds six synthetic emails written for this project: a PayPal look-alike with a Safe Links-wrapped punycode link, an invoice with a macro document and an HTML attachment, a clean newsletter, a CEO gift-card request, a parcel notice full of link tricks, and a user report that forwards the first one as an attachment. All domains are reserved (`.example`, `example.net`), all IPs are from documentation ranges, and the attachments contain only placeholder text. One sample links to a `bit.ly` path made up for this project to demonstrate shortener detection; the app never makes it clickable. Regenerate them with `node scripts/make-samples.ts` (Node 22.18+).
+`samples/` holds seven synthetic emails written for this project: a PayPal look-alike with a Safe Links-wrapped punycode link, an invoice with a macro document and an HTML attachment, a clean newsletter, a CEO gift-card request, a parcel notice full of link tricks, a user report that forwards the first one as an attachment, and a fake signature request saved as an Outlook `.msg` file (body stored as compressed RTF, like most real ones). The `.msg` sample is written by `scripts/msg.ts`; Python's `extract-msg` reads it with the same subject, headers, HTML and attachment hash. All domains are reserved (`.example`, `example.net`), all IPs are from documentation ranges, and the attachments contain only placeholder text. One sample links to a `bit.ly` path made up for this project to demonstrate shortener detection; the app never makes it clickable. Regenerate them with `node scripts/make-samples.ts` (Node 22.18+).
 
 ## Development
 
@@ -105,6 +108,7 @@ npm run screenshots      # drives the built app in Chromium (Playwright), fails 
 - HTML is scanned with regular expressions, not a DOM parser; badly malformed markup can hide a link.
 - Language checks are English only.
 - Attachments are inspected, not decompressed: macros inside nested archives, PDF JavaScript and remote-template tricks in Office files are not detected.
+- `.msg` files: OLE-object and by-reference (cloud link) attachments are named in the report but not extracted, and the SHA-256 of an email attached inside a `.msg` is of the rebuilt MIME copy, not of any original file. Ordinary attachments hash exactly as in the `.eml`.
 - `Received` headers below your own provider can be forged; the timeline shows them as written.
 - Very large inputs cost memory: a 10 MB email of 450,000 distinct links takes about 3 s and 1 GB in the CLI, whose JSON then lists every link.
 - The page lists at most 200 headers, hops, links, attachments, MIME parts, ZIP entries or evidence lines per section and says how many it left out; findings and "Copy JSON report" cover all of them.
@@ -114,7 +118,6 @@ npm run screenshots      # drives the built app in Chromium (Playwright), fails 
 
 - Office remote-template and PDF JavaScript/launch-action detection (needs inflate via `DecompressionStream`)
 - Full Public Suffix List and a larger confusables table
-- `.msg` (Outlook) file support
 - More languages for the phrase checks
 - Exporting a defanged analyst report (Markdown) from the UI
 
