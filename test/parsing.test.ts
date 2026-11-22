@@ -74,6 +74,11 @@ describe('mime', () => {
     expect(p.value).toBe('attachment');
     expect(p.params['filename']).toBe('Fatura 2026.pdf');
   });
+  it('reads a header with blanks before the colon (RFC 5322 obsolete syntax), not an mbox "From " line', () => {
+    // "From : PayPal <x@evil.example>" was dropped: no sender, score 0, while mail apps show it.
+    const h = parseMessage('From x@evil.example Tue Nov 10 09:00:00 2026\nFrom \t: PayPal <x@evil.example>\nSubject : hi\n\nbody').headers;
+    expect(h.map((x) => [x.name, x.raw])).toEqual([['From', 'PayPal <x@evil.example>'], ['Subject', 'hi']]);
+  });
   it('walks nested multiparts and decodes base64 attachments', () => {
     const raw = [
       'From: a@example.com',

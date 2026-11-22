@@ -35,9 +35,11 @@ export function parseHeaders(block: string): Header[] {
       continue;
     }
     const idx = line.indexOf(':');
+    // "From :" is obsolete but valid (RFC 5322 4.5.3) and shown by mail apps.
+    const name = line.slice(0, Math.max(0, idx)).replace(/[ \t]+$/, '');
     // Skip mbox "From " separators and garbage lines without a header name.
-    if (idx <= 0 || /\s/.test(line.slice(0, idx))) continue;
-    headers.push({ name: line.slice(0, idx), raw: line.slice(idx + 1).trim() });
+    if (!name || /\s/.test(name)) continue;
+    headers.push({ name, raw: line.slice(idx + 1).trim() });
   }
   return headers;
 }
