@@ -317,7 +317,7 @@ function renderRaw(a: Analysis) {
       })), more(a.structure)),
     h('details', {}, h('summary', {}, `All headers (${a.headers.length})`),
       h('dl', { class: 'headers mono small' }, shown(a.headers).map((x) => [h('dt', {}, x.name), h('dd', {}, x.value)])), more(a.headers)),
-    a.bodyText && h('details', {}, h('summary', {}, 'Message text (as plain text, links not clickable)'), h('pre', { class: 'body' }, a.bodyText)),
+    a.bodyText && h('details', {}, h('summary', {}, 'Message text (as plain text, links not clickable)'), h('pre', { class: 'body', tabindex: '0', 'aria-label': 'Message text' }, a.bodyText)),
   );
 }
 
@@ -338,9 +338,10 @@ function render() {
     h('button', { type: 'button', class: 'ghost small', onclick: reset }, 'Analyze another email'),
   );
   results.replaceChildren(
+    h('h1', { class: 'sr-only' }, `Analysis of ${current.label}`),
     toolbar,
     h('div', { class: 'layout' },
-      h('div', { class: 'col-verdict', tabindex: '0', 'aria-label': 'Verdict and next steps' }, renderVerdict(a)),
+      h('div', { class: 'col-verdict', tabindex: '0', role: 'region', 'aria-label': 'Verdict and next steps' }, renderVerdict(a)),
       h('div', { class: 'col-detail' }, renderFindings(a), renderSender(a), renderAuth(a), renderHops(a), renderLinks(a), renderAttachments(a), renderRaw(a)),
     ),
   );

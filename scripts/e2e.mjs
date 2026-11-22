@@ -2,6 +2,8 @@
 // the way GitHub Pages serves the project (/mailsleuth/). For every sample, the page must show
 // exactly what the CLI computes in Node (score, reasons, delivery dates, attachment hashes), so
 // engine differences (dates, text decoding, regex, crypto) surface as failures.
+// It also runs axe-core on the start page and on every sample's result with all sections
+// expanded, in light and dark colours, and fails on any WCAG 2.2 A/AA or best-practice violation.
 // Usage: npm run build && node scripts/e2e.mjs [chromium] [firefox] [webkit]
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -24,6 +26,9 @@ const server = createServer((req, res) => {
   }
 });
 await new Promise((ok) => server.listen(PORT, 'localhost', ok));
+
+const AXE = readFileSync('node_modules/axe-core/axe.min.js', 'utf8');
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 
 const cli = (file) => JSON.parse(execFileSync('node', ['dist-cli/mailsleuth.js', '--compact', file], { maxBuffer: 1 << 26 }).toString());
 const utc = (iso) => iso.replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
@@ -48,6 +53,18 @@ const check = (where, got, want) => {
   if (JSON.stringify(got) !== JSON.stringify(want)) problems.push(`${where}:\n  page ${JSON.stringify(got)}\n  cli  ${JSON.stringify(want)}`);
 };
 
+/** axe-core on the current page, in light and dark. evaluate() is not subject to the page's CSP. */
+async function audit(page, where) {
+  if (!(await page.evaluate(() => 'axe' in window))) await page.evaluate(AXE);
+  await page.$$eval('details', (d) => d.forEach((x) => (x.open = true)));
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' }); // no colour transition mid-measurement
+    const violations = await page.evaluate((tags) => axe.run(document, { runOnly: tags }).then((r) => r.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(', ')}`)), AXE_TAGS);
+    for (const v of violations) problems.push(`${where}, ${colorScheme}: axe ${v}`);
+  }
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: null });
+}
+
 const engines = process.argv.slice(2).length ? process.argv.slice(2) : ['chromium'];
 try {
   for (const name of engines) {
@@ -60,6 +77,7 @@ try {
     // Capture what the copy buttons write, the same way in every engine (no clipboard permission prompts).
     await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => void (window.copied = t) } }));
     await page.goto(base);
+    await audit(page, `${name} start page`);
 
     // Every bundled sample, picked from the list.
     const samples = await page.$$eval('#sample option', (o) => o.map((x) => x.value.split('/').pop()));
@@ -70,6 +88,7 @@ try {
       await page.waitForSelector('#verdict-h');
       const want = cli(`samples/${file}`);
       check(`${name} sample ${file}`, await shown(page), expected(want));
+      await audit(page, `${name} sample ${file}`);
       // A forwarded report: open the attached email from its card.
       if (want.attachments[0]?.email) {
         await page.click('text=Analyze attached email');
@@ -104,7 +123,7 @@ try {
     check(`${name} paste`, await shown(page), expected(JSON.parse(execFileSync('node', ['dist-cli/mailsleuth.js', '--compact', '-'], { input: pasted }).toString())));
 
     await browser.close();
-    console.log(`${name}: ${samples.length} samples (and the attached email), 2 files with their Markdown reports, 1 PDF, 1 paste checked`);
+    console.log(`${name}: ${samples.length} samples (and the attached email), 2 files with their Markdown reports, 1 PDF, 1 paste checked; axe on ${samples.length + 1} pages`);
   }
 } finally {
   server.close();
