@@ -1,6 +1,6 @@
 import { sameOrg } from './domains';
 import { decodeRawHeader } from './encoding';
-import { splitParams } from './mime';
+import { splitParams, stripComments } from './mime';
 
 export interface AuthResult {
   method: string;
@@ -93,28 +93,11 @@ function explain(method: string, result: string, domain: string | null, comments
   return { explanation: `${method} check result: ${result}.`, tone: result === 'pass' ? 'good' : result === 'fail' ? 'bad' : 'neutral' };
 }
 
-/**
- * Replaces each comment, nested ones included (RFC 5322), with a space in one pass.
- * Peeling one nesting level per pass was quadratic: 200,000 nested "(" took minutes.
- * An unclosed "(" comments out the rest, like a mail parser would.
- */
-function stripComments(s: string): string {
-  let out = '';
-  let depth = 0;
-  for (const c of s) {
-    if (c === '(') depth++;
-    else if (c === ')' && depth) {
-      if (--depth === 0) out += ' ';
-    } else if (!depth) out += c;
-  }
-  return out;
-}
-
 export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Authentication-Results'): AuthHeader {
   const segments = splitParams(decodeRawHeader(raw));
   let instance: number | null = null;
   if (segments[0] && /^i\s*=\s*\d+$/i.test(segments[0])) instance = Number(segments.shift()!.split('=')[1]);
-  const authservId = segments[0] && !/^[\w.-]+\s*=/.test(segments[0]) ? segments.shift()!.replace(/\s+\d+$/, '') : '';
+  const authservId = segments[0] && !/^[\w.-]+\s*=/.test(segments[0]) ? stripComments(segments.shift()!).trim().replace(/\s+\d+$/, '') : '';
   const results: AuthResult[] = [];
   for (const seg of segments) {
     const comments = [...seg.matchAll(/\(([^()]*)\)/g)].map((m) => m[1]);
@@ -124,7 +107,7 @@ export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Au
     const method = m[1].toLowerCase();
     const result = m[2].toLowerCase();
     const props: Record<string, string> = {};
-    for (const p of text.slice(m[0].length).matchAll(/([\w.-]+)\s*=\s*("[^"]*"|[^\s;]+)/g)) {
+    for (const p of text.slice(m[0].length).matchAll(/(?<![\w.-])([\w.-]+)\s*=\s*("[^"]*"|[^\s;]+)/g)) {
       props[p[1].toLowerCase()] = p[2].replace(/^"|"$/g, '');
     }
     const domain =

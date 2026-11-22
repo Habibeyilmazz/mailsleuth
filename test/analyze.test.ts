@@ -108,6 +108,12 @@ describe('end-to-end on the bundled samples', () => {
     const junk = await analyze('\x00\xff random bytes \n\n\n--x--');
     expect(junk.level).toBe('low');
   });
+  it('keeps thousands of distinct link findings linear', async () => {
+    const t = performance.now();
+    const a = await analyze('Content-Type: text/html\n\n' + Array.from({ length: 40000 }, (_, i) => `<a href="data:text/html,${i}">x</a>`).join(''));
+    expect(a.findings.find((f) => f.id === 'data-uri')?.evidence).toHaveLength(40000);
+    expect(performance.now() - t).toBeLessThan(1500); // was about 8 s with evidence.includes()
+  });
   it('checks links made relative by a <base href> (baseStriker)', async () => {
     const a = await analyze('From: a@b.example\nContent-Type: text/html\n\n<base href="https://paypa1-secure.top/"><a href="signin">https://www.paypal.com/signin</a>');
     expect(a.findings.map((f) => f.id)).toEqual(expect.arrayContaining(['text-mismatch', 'lookalike-domain']));

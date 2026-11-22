@@ -51,6 +51,31 @@ export function getHeaders(headers: Header[], name: string): string[] {
   return headers.filter((x) => x.name.toLowerCase() === name.toLowerCase()).map((x) => x.raw);
 }
 
+/**
+ * Removes RFC 5322 comments (nested, with \\-escapes) outside quoted strings, in one linear pass;
+ * each becomes a space. An unclosed "(" comments out the rest, like a mail parser would.
+ */
+export function stripComments(s: string): string {
+  let out = '';
+  let depth = 0;
+  let quote = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '\\' && (quote || depth)) {
+      if (!depth) out += c + (s[i + 1] ?? '');
+      i++;
+    } else if (depth) {
+      if (c === '(') depth++;
+      else if (c === ')' && --depth === 0) out += ' ';
+    } else if (c === '(' && !quote) depth++;
+    else {
+      if (c === '"') quote = !quote;
+      out += c;
+    }
+  }
+  return out;
+}
+
 /** Splits on `;` outside quotes and parentheses. */
 export function splitParams(value: string): string[] {
   const out: string[] = [];
@@ -59,11 +84,12 @@ export function splitParams(value: string): string[] {
   let depth = 0;
   for (let i = 0; i < value.length; i++) {
     const c = value[i];
-    if (c === '\\' && quote) {
+    if (c === '\\' && (quote || depth)) {
       cur += c + (value[++i] ?? '');
       continue;
     }
-    if (c === '"') quote = !quote;
+    // A quote inside a comment is just text: (a"b) must not swallow the following results.
+    if (c === '"' && !depth) quote = !quote;
     else if (!quote && c === '(') depth++;
     else if (!quote && c === ')') depth = Math.max(0, depth - 1);
     if (c === ';' && !quote && depth === 0) {
@@ -88,9 +114,11 @@ export function parseStructuredHeader(raw: string): { value: string; params: Rec
   for (const p of rest) {
     const eq = p.indexOf('=');
     if (eq <= 0) continue;
-    const key = p.slice(0, eq).trim().toLowerCase();
-    const val = unquote(p.slice(eq + 1));
+    const key = stripComments(p.slice(0, eq)).trim().toLowerCase();
     const m = /^([^*]+)(?:\*(\d+))?(\*)?$/.exec(key);
+    // RFC 2045's own example is "charset=us-ascii (Plain text)"; "boundary=b (x)" must not hide every part.
+    // Extended (*=) values are percent-encoded and have no comments.
+    const val = unquote(m?.[3] ? p.slice(eq + 1) : stripComments(p.slice(eq + 1)));
     if (!m) continue;
     const idx = m[2] ? Number(m[2]) : 0;
     if (idx > 64) continue; // real continuations are short; huge indexes would allocate sparse arrays
@@ -122,12 +150,12 @@ export function parseStructuredHeader(raw: string): { value: string; params: Rec
       ? decodeCharset(binaryToBytes(binary), charset)
       : decodeHeaderValue(binary);
   }
-  // RFC 2045 allows comments: "multipart/mixed (report); boundary=b".
-  return { value: first.replace(/\([^()]*\)/g, '').trim().toLowerCase(), params };
+  // RFC 2045 allows comments and spaces: "multipart / mixed (report (v2)); boundary=b".
+  return { value: stripComments(first).replace(/\s+/g, '').toLowerCase(), params };
 }
 
 function decodeBody(body: string, cte: string): Uint8Array {
-  switch (cte.replace(/\([^()]*\)/g, '').trim().toLowerCase()) {
+  switch (stripComments(cte).trim().toLowerCase()) {
     case 'base64':
       return decodeBase64(body);
     case 'quoted-printable':

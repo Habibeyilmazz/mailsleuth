@@ -169,7 +169,8 @@ export function extractHtmlLinks(html: string): { href: string; text: string }[]
   const baseTag = new RegExp(`<base\\b${attrs}`, 'i').exec(html);
   const base = baseTag && attr(baseTag[1], 'href');
   const resolve = (href: string) => {
-    if (!base || /^([a-z][a-z0-9+.-]*:|#)/i.test(href)) return href;
+    if (/^([a-z][a-z0-9+.-]*:|#)/i.test(href)) return href;
+    if (!base) return href.startsWith('//') ? 'https:' + href : href; // "//evil.example/x" opens over https
     try {
       return new URL(href, cleanHref(base)).href;
     } catch {
@@ -177,7 +178,7 @@ export function extractHtmlLinks(html: string): { href: string; text: string }[]
     }
   };
   for (const m of html.matchAll(new RegExp(`<a\\b${attrs}([\\s\\S]*?)(?:<\\/a\\s*>|(?=<a[\\s>])|$)`, 'gi'))) {
-    const h = attr(m[1], 'href');
+    const h = attr(m[1], 'href') ?? attr(m[1], 'xlink:href'); // SVG links
     // Inline tags join text ("<span>pay</span><span>pal.com</span>" reads "paypal.com"); block tags separate it.
     const text = m[2].replace(/<(br|p|div|tr|td|li|h\d)\b[^>]*(?:>|$)/gi, ' ').replace(/<[a-z/!?][^>]*(?:>|$)/gi, '');
     if (h !== null) out.push({ href: resolve(cleanHref(h)), text: decodeHtmlEntities(text).replace(/\s+/g, ' ').trim() });

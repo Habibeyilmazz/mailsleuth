@@ -128,8 +128,37 @@ describe('hostile MIME input', () => {
   it('parses a Received date full of "(" in linear time', () => {
     fast(() => expect(parseReceived(`from a by b; ${'('.repeat(200000)}`).date).toBeNull());
   });
+  it('stays linear on whitespace runs and long words (second-opinion review)', () => {
+    fast(() => htmlToText('\r'.repeat(200000) + 'X'));
+    fast(() => parseAuthResults('mx; spf=pass ' + 'a'.repeat(200000)));
+    fast(() => parseAddressList('<a>' + ' '.repeat(200000) + 'X'));
+  });
   it('checks a huge host name against every brand quickly', () => {
     fast(() => inspectDomain(`${'paypa1-'.repeat(100000)}.com`));
+  });
+});
+
+describe('comments (RFC 5322 / RFC 2045)', () => {
+  it('do not hide multipart parts or attachments', () => {
+    for (const ct of ['multipart/mixed (a (b)); boundary=b', 'multipart / mixed; boundary=b', 'multipart/mixed; boundary=b (x)']) {
+      const msg = parseMessage(`Content-Type: ${ct}\n\n--b\nContent-Disposition: attachment; filename=a.exe\n\nMZ\n--b--\n`);
+      expect([...walkParts(msg)].filter(isAttachment).map((p) => p.filename)).toEqual(['a.exe']);
+    }
+    expect(parseStructuredHeader('text/plain; charset=us-ascii (Plain text)').params['charset']).toBe('us-ascii');
+    expect(parseStructuredHeader('attachment; filename="report (1).pdf"').params['filename']).toBe('report (1).pdf');
+  });
+  it('do not stop a nested comment in Content-Transfer-Encoding from decoding the body', () => {
+    const msg = parseMessage('Content-Type: text/plain\nContent-Transfer-Encoding: base64 (a (b))\n\naGk=\n');
+    expect(dec(msg.body)).toBe('hi');
+  });
+  it('with quotes or escaped parentheses inside do not swallow authentication results', () => {
+    expect(parseAuthResults('mx; spf=pass (a"b); dmarc=fail header.from=x.example').results.map((r) => r.method)).toEqual(['spf', 'dmarc']);
+    expect(parseAuthResults('mx; (a\\() dmarc=fail header.from=x.example').results.map((r) => r.result)).toEqual(['fail']);
+    expect(parseAuthResults('mx.example.net (a); dmarc=pass header.from=x.example').authservId).toBe('mx.example.net');
+  });
+  it('around addresses are ignored, inside quoted local parts kept', () => {
+    expect(parseAddressList('Alice <a@example.com> (one) (two)')[0]).toMatchObject({ address: 'a@example.com', domain: 'example.com' });
+    expect(parseAddressList('"a(b)"@example.com')[0].address).toBe('"a(b)"@example.com');
   });
 });
 

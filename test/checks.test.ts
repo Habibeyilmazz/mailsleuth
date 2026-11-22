@@ -62,6 +62,10 @@ describe('links', () => {
     expect(extractHtmlLinks(html).map((l) => l.href)).toEqual(['https://evil.example/kit/login.html', 'https://ok.example/', '#top']);
     expect(extractHtmlLinks('<a href="login.html">x</a>')[0].href).toBe('login.html');
   });
+  it('finds protocol-relative and SVG xlink:href links', () => {
+    expect(extractHtmlLinks('<a href="//evil.example/a.exe">x</a>')[0].href).toBe('https://evil.example/a.exe');
+    expect(extractHtmlLinks('<svg><a xlink:href="https://evil.example/a.exe"><text>x</text></a></svg>')[0].href).toBe('https://evil.example/a.exe');
+  });
   it('reads hosts the way the browser does when &shy; hides inside them', () => {
     const [l] = extractHtmlLinks('<a href="https://pay&shy;pa1.example/login">Sign in</a>');
     expect(analyzeLink(l.href, l.text, 'html').host).toBe('paypa1.example');

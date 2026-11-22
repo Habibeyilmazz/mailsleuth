@@ -1,4 +1,5 @@
 import { decodeHeaderValue } from './encoding';
+import { stripComments } from './mime';
 
 export interface Address {
   name: string;
@@ -41,7 +42,7 @@ export function parseAddressList(raw: string | null): Address[] {
   const value = raw.replace(/^[^"<>@,]*:\s*/, '').replace(/;\s*$/, '');
   return splitList(value).map((entry) => {
     // Comments match as [^()]*, never [^)]*: that rescans to the end from every "(" (quadratic on "((((…").
-    const angle = /<([^<>]*)>\s*(?:\([^()]*\))?\s*$/.exec(entry);
+    const angle = /<([^<>]*)>\s*(?:\([^()]*\)\s*)*$/.exec(entry); // one \s* per gap: two in a row backtrack quadratically
     let address: string;
     let name: string;
     if (angle) {
@@ -50,7 +51,7 @@ export function parseAddressList(raw: string | null): Address[] {
     } else {
       const comment = /\(([^()]*)\)/.exec(entry);
       name = comment ? comment[1].trim() : '';
-      address = entry.replace(/\([^()]*\)/g, '').trim();
+      address = stripComments(entry).trim(); // quote-aware: "a(b)"@x keeps its local part
     }
     name = decodeHeaderValue(name.replace(/^"(.*)"$/s, '$1').replace(/\\(.)/g, '$1')).trim();
     address = decodeHeaderValue(address).replace(/^mailto:/i, '');
