@@ -32,6 +32,8 @@ jobs:
           FUZZ_CASES: '3000'
       - name: Build web app and CLI
         run: npm run build
+      - name: Build browser extension (dist-extension/ and zips)
+        run: npm run build:extension
       - name: CLI smoke test on every sample
         run: |
           for f in samples/*.eml; do
@@ -70,3 +72,15 @@ jobs:
         run: npm run e2e -- chromium firefox webkit
       - name: Built page forbids network access
         run: grep -q "connect-src 'none'" dist/index.html
+      - name: Extension in Chromium against a fake Gmail page (no real Gmail, no account)
+        run: npm run e2e:extension
+      - name: Extension asks for no API permissions and keeps its strict CSP
+        run: |
+          node -e 'const m=require("./dist-extension/manifest.json"); if (m.permissions || m.host_permissions || m.optional_permissions || !m.content_security_policy.extension_pages.includes("connect-src '"'"'none'"'"'")) process.exit(1)'
+      - name: Upload the unpacked-extension zips (not published anywhere)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mailsleuth-extension
+          path: mailsleuth-extension-*.zip
+          if-no-files-found: error
+          retention-days: 30
