@@ -22,6 +22,8 @@ npm run dev          # web app on http://localhost:4190
 
 Pick one of the synthetic samples on the start page, drop your own `.eml` file, or paste the message source (Gmail: ⋮ › Show original; Outlook: ⋯ › View › View message source). Headers alone also work.
 
+More screenshots: [start page](docs/screenshots/home.png), [phone, dark mode](docs/screenshots/mobile-result-dark.png).
+
 ### Command line
 
 ```sh
