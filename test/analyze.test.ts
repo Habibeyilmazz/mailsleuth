@@ -126,8 +126,11 @@ describe('end-to-end on the bundled samples', () => {
       const a = await analyze(raw.replace(/\r?\n/g, eol));
       expect([a.score, ids(a), a.attachments.map((x) => x.sha256)]).toEqual([want.score, ids(want), want.attachments.map((x) => x.sha256)]);
     }
+    // A stray CR in a well-formed message (here inside an unencoded attachment) leaves its bytes alone.
+    const stray = await analyze('From: a@b.example\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: application/octet-stream; name=a.bin\r\n\r\nx\ry\r\n--b--\r\n');
+    expect(stray.attachments[0].sha256).toBe('029adb4e81fda56ca4173173940e5c2015e946d72ea36dc52a16db3cc3b1c810'); // SHA-256 of "x\ry"
     const t = performance.now();
-    await analyze(`From: a@b.example\n\n${'\r'.repeat(300000)}x${'\r\r\n'.repeat(100000)}`);
+    await analyze(`From: a@b.example\r\r\n${'\r'.repeat(300000)}x${'\r\r\n'.repeat(100000)}`);
     expect(performance.now() - t).toBeLessThan(500);
   });
   it('reads a file saved with a UTF-8 byte order mark', async () => {

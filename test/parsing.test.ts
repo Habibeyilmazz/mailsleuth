@@ -212,6 +212,7 @@ describe('received', () => {
     expect(iso('10 Nov 26 09:00 EDT')).toBe('2026-11-10T13:00:00.000Z');
     expect(iso('Tue,10 Nov 2026 09:00:00 -0000')).toBe('2026-11-10T09:00:00.000Z');
     expect(iso('Tue, 10 Nov 99 09:00:00 GMT')).toBe('1999-11-10T09:00:00.000Z');
+    expect(iso('Tue 10 November 2026 09:00:00 +01:00')).toBe('2026-11-10T08:00:00.000Z');
     // Date.parse reads a date without a zone as the viewer's local time: hop delays then differed per country.
     expect(iso('Tue, 10 Nov 2026 09:00:00')).toBeNull();
     expect(iso('Tue, 10 Nov 2026 09:00:00 CET')).toBeNull(); // not an RFC zone name; Date.parse support varies

@@ -20,7 +20,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 // RFC 5322 4.3 zone names, in hours. Other names (CET, IST, military letters) are ambiguous.
 const ZONES: Record<string, number> = { ut: 0, utc: 0, gmt: 0, z: 0, edt: -4, est: -5, cdt: -5, cst: -6, mdt: -6, mst: -7, pdt: -7, pst: -8 };
 // Single spaces only: the input is whitespace-collapsed first, so nothing here can backtrack over a long run.
-const DATE_RE = /^(?:[a-z]+ ?, ?)?(\d{1,2}) ([a-z]{3})[a-z]* (\d{2,4}) (\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)? ?(?:([+-])(\d{2})(\d{2})|([a-z]+))?/i;
+const DATE_RE = /^(?:[a-z]+ ?,? ?)?(\d{1,2}) ([a-z]{3})[a-z]* (\d{2,4}) (\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)? ?(?:([+-])(\d{2}):?(\d{2})|([a-z]+))?/i;
 
 /**
  * RFC 5322 date-time, parsed here rather than by Date.parse, which differs between browsers and reads a date
