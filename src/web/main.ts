@@ -21,6 +21,7 @@ const SAMPLE_LABELS: Record<string, string> = {
   '05-parcel-redelivery.eml': 'Parcel redelivery link tricks',
   '06-user-report-forwarded.eml': 'User report with phishing attached',
   '07-outlook-sign-request.msg': 'Outlook .msg file: fake signature request',
+  '08-pdf-link-lure.eml': 'Calm email, the link is in the PDF',
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -271,6 +272,7 @@ function renderLinks(a: Analysis) {
       return h('li', { class: issues.length ? 'link flagged' : 'link' },
         l.text !== null && h('p', { class: 'link-text' }, l.text ? `“${l.text}”` : '(no visible text)'),
         h('p', { class: 'mono url' }, defang(l.finalUrl)),
+        l.attachment !== null && h('p', { class: 'small' }, 'Inside the attachment ', h('span', { class: 'mono' }, l.attachment)),
         l.unwrappedVia.length > 0 && h('p', { class: 'small' }, `Unwrapped from ${l.unwrappedVia.join(' → ')}. Original: `, h('span', { class: 'mono' }, defang(l.href))),
         issues.length > 0 && h('ul', { class: 'issues' }, issues.map((i) => h('li', {}, i))),
         h('p', { class: 'actions' },
@@ -283,6 +285,8 @@ function renderLinks(a: Analysis) {
     more(a.links));
 }
 
+const linksIn = (a: Analysis, filename: string) => a.links.filter((l) => l.attachment === filename).length;
+
 function renderAttachments(a: Analysis) {
   if (!a.attachments.length) return section('attachments', 'Attachments', null, h('p', { class: 'empty' }, 'No attachments.'));
   return section('attachments', 'Attachments', 'Inspected by their internal structure, never opened or run. Hashes let you look a file up without uploading it.',
@@ -292,6 +296,7 @@ function renderAttachments(a: Analysis) {
         h('p', { class: 'small' }, `Declared as ${att.contentType}${att.detectedType ? `; content looks like ${att.detectedType}` : ''}`),
         h('p', { class: 'mono hash' }, `SHA-256 ${att.sha256}`),
         att.zipEntries.length > 0 && h('details', {}, h('summary', {}, `${att.zipEntries.length} files inside`), h('ul', { class: 'mono small' }, shown(att.zipEntries).map((n) => h('li', {}, n))), more(att.zipEntries)),
+        linksIn(a, att.filename) > 0 && h('p', { class: 'small' }, `${linksIn(a, att.filename)} link${linksIn(a, att.filename) === 1 ? '' : 's'} inside, listed under Links`),
         att.issues.length > 0 && h('ul', { class: 'issues' }, att.issues.map((i) => h('li', {}, i.detail))),
         h('p', { class: 'actions' },
           copyButton(att.sha256, 'Copy hash'),

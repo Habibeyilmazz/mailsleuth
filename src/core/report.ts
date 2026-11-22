@@ -143,6 +143,7 @@ function sections(a: Analysis, level: number): string[] {
   out.push(...capped(a.links, (l) => {
     const notes = [
       l.text !== null && `text ${code(l.text)}`,
+      l.attachment !== null && `inside the attachment ${code(l.attachment)}`,
       l.unwrappedVia.length > 0 && `unwrapped from ${prose(l.unwrappedVia.join(' → '))}`,
     ].filter(Boolean);
     const issues = [...l.issues, ...l.domainIssues].map((i) => `\n  - ${code(i.detail)}`).join('');

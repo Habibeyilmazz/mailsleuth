@@ -77,6 +77,13 @@ describe('Markdown report', () => {
     expect(md).toContain('## What to do next\n\n1. Treat this email as phishing');
   });
 
+  it('says which attachment a link came from and lists it as an observable', async () => {
+    const md = toMarkdown(await sample('08-pdf-link-lure.eml'));
+    expect(md).toContain('- `hxxps://rnicrosoft-online[.]example/sharepoint/q4-rate-sheet?id=4471` (inside the attachment `Q4_Rate_Sheet.pdf`)');
+    expect(md).toContain('**Score 25/100: Suspicious.**');
+    expect(md.split('## Observables')[1]).toContain('rnicrosoft-online[.]example');
+  });
+
   it('never lets email content become Markdown links, images, HTML or headings', async () => {
     const hostile = [
       'From: "[Support](https://evil.example/a) ![t](https://evil.example/t.png)" <x@evil.example>',
