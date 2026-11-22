@@ -3,9 +3,10 @@ import { inspectAttachment, KIND_LABEL, type AttachmentIssue } from './attachmen
 import { buildAuthReport, resultFor, type AuthReport } from './auth';
 import { BRANDS, FREE_MAIL } from './data';
 import { brandOwning, inspectDomain, normalizeDomain, sameOrg, type DomainIssue } from './domains';
-import { bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex } from './encoding';
+import { binaryToBytes, bytesToBinary, decodeCharset, decodeHeaderValue, htmlToText, sha256Hex } from './encoding';
 import { scanLanguage, type LanguageHit } from './language';
 import { getHeader, getHeaders, isAttachment, parseMessage, walkParts, type MimePart } from './mime';
+import { isCompoundFile, readMsg, type MsgResult } from './msg';
 import { buildHops, type Hop } from './received';
 import { analyzeLink, extractHtmlLinks, extractTextLinks, isIgnorableHref, type LinkInfo } from './urls';
 
@@ -88,6 +89,8 @@ const CATALOG: Record<string, [Category, Severity, string, string]> = {
   'arc-fail': ['authentication', 'low', 'Broken forwarding chain (ARC)', 'An intermediary\'s record of earlier checks does not validate.'],
   'auth-unverified': ['authentication', 'info', 'Authentication results cannot be tied to a receiving server', 'The pass/fail results below were not written by a server that appears in the delivery path, so anyone could have typed them. Passing results are not counted in the email\'s favour.'],
   'no-headers': ['sender', 'info', 'No email headers found: only the text and links were checked', 'Sender, authentication and delivery-path checks need the full message source (Gmail: Show original; Outlook: View message source) or the saved .eml file.'],
+  'msg-no-headers': ['sender', 'info', 'This Outlook .msg file has no internet headers', 'Outlook keeps the original headers only for mail that arrived from another server. Drafts, sent items, some internal mail and some export tools have none, so SPF/DKIM/DMARC and the delivery path cannot be checked and the sender shown is the one Outlook stored. If you can, get the message forwarded as an attachment from the recipient\'s mailbox, or copy File › Properties › Internet headers in Outlook.'],
+  'outlook-msg': ['delivery', 'info', 'Read from an Outlook .msg file', 'Outlook stores the original internet headers, the text and each attachment separately. mailsleuth rebuilt the message from them: the headers are the ones the mail server received, but the MIME layout, and the SHA-256 of an email attached inside it, belong to the rebuilt copy.'],
   'no-auth-results': ['authentication', 'info', 'No authentication results found', 'There is no Authentication-Results header, so SPF/DKIM/DMARC could not be reviewed. Paste the full headers (not just the body) to see them.'],
   'text-mismatch': ['links', 'high', 'Link text shows one site but goes to another', 'The visible text of a link can say anything. Here it names a different site than where the link really leads.'],
   'userinfo': ['links', 'high', 'Link uses the "@" trick', 'In web addresses everything before "@" is a username that browsers ignore, so a trusted name there is pure decoration.'],
@@ -298,9 +301,28 @@ function reassurances(auth: AuthReport, links: LinkInfo[], attachments: Attachme
 }
 
 const MAX_NESTING = 3;
+const MSG_BODY: Record<MsgResult['bodyFrom'], string> = {
+  html: 'message text: the HTML body Outlook stored',
+  rtf: 'message text: HTML recovered from Outlook\'s rich-text (RTF) body',
+  text: 'message text: plain text only (links in it are checked, but not where formatted links really point)',
+  none: 'Outlook stored no message text',
+};
+
+/** Outlook .msg input becomes MIME; other Office compound files (.doc, .xls) are refused. */
+function fromMsg(binary: string): MsgResult {
+  let msg: MsgResult | null;
+  try {
+    msg = readMsg(binaryToBytes(binary));
+  } catch (e) {
+    throw new Error(`this Outlook .msg file is damaged or cut short (${(e as Error).message}). Try saving it from Outlook again.`);
+  }
+  if (!msg) throw new Error('this is a Microsoft Office file such as .doc or .xls, not an email. Use the .eml or Outlook .msg file of the message.');
+  return msg;
+}
 
 export async function analyze(binary: string, depth = 0): Promise<Analysis> {
-  const root = parseMessage(binary);
+  const msg = isCompoundFile(binary) ? fromMsg(binary) : null;
+  const root = parseMessage(msg ? msg.mime : binary);
   const h = root.headers;
   const from = parseAddressList(getHeader(h, 'from'))[0] ?? null;
   const summary: Analysis['summary'] = {
@@ -338,6 +360,8 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
     if (isAttachment(part)) {
       const isEmail = part.contentType === 'message/rfc822';
       const filename = part.filename ?? (isEmail ? 'attached-message.eml' : 'unnamed-attachment');
+      // An attached Outlook .msg (common in user reports) is analyzed like an attached .eml; other Office files are not emails.
+      const nested = depth < MAX_NESTING && (isEmail || isCompoundFile(bytesToBinary(part.body.subarray(0, 8))));
       const inspected = inspectAttachment(filename, part.body);
       attachments.push({
         filename,
@@ -347,7 +371,7 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
         detectedType: inspected.kind ? KIND_LABEL[inspected.kind] : null,
         zipEntries: inspected.zipEntries,
         issues: inspected.issues,
-        email: isEmail && depth < MAX_NESTING ? await analyze(bytesToBinary(part.body), depth + 1) : null,
+        email: nested ? await analyze(bytesToBinary(part.body), depth + 1).catch(() => null) : null,
       });
       continue;
     }
@@ -377,8 +401,9 @@ export async function analyze(binary: string, depth = 0): Promise<Analysis> {
   const f = new Findings();
   const dmarcPass = resultFor(auth, 'dmarc')?.result === 'pass';
   senderChecks(f, summary, dmarcPass);
-  if (h.length) authChecks(f, auth);
-  else f.add('no-headers', '');
+  if (msg) f.add(msg.transportHeaders ? 'outlook-msg' : 'msg-no-headers', MSG_BODY[msg.bodyFrom]);
+  if (!h.length) f.add('no-headers', '');
+  else if (msg?.transportHeaders !== false) authChecks(f, auth); // a .msg without headers has nothing to check
   linkChecks(f, links);
   attachmentChecks(f, attachments);
   nestedChecks(f, attachments);

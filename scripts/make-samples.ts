@@ -2,6 +2,7 @@
 // Every domain is reserved (.example / example.net), every IP is from documentation ranges,
 // and attachments contain only harmless placeholder text. Nothing here is real mail.
 import { writeFileSync } from 'node:fs';
+import { compressRtf, makeMsg } from './msg.ts';
 import { makeZip } from './zip.ts';
 
 const b64 = (data: string | Uint8Array) =>
@@ -244,3 +245,75 @@ ${samples['01-paypal-lookalike.eml']}
 
 for (const [name, body] of Object.entries(samples)) writeFileSync(new URL(`../samples/${name}`, import.meta.url), body);
 console.log(`wrote ${Object.keys(samples).length} samples`);
+
+// 07: the same kind of lure saved from Outlook as a .msg file. Like most real .msg files, the
+// formatted body exists only as compressed RTF with the original HTML encapsulated in it.
+const lureHeaders = `Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 61CD03; Wed, 11 Nov 2026 14:02:19 +0000
+Received: from relay.sign-docs.example (relay.sign-docs.example [203.0.113.88])
+ by mx1.example.net with ESMTPS id 9e0b44; Wed, 11 Nov 2026 14:02:17 +0000
+Authentication-Results: mx1.example.net;
+ spf=fail (example.net: domain of notice@docusign-mail.example does not designate 203.0.113.88 as permitted sender) smtp.mailfrom=notice@docusign-mail.example;
+ dkim=none;
+ dmarc=fail (p=reject) header.from=docusign-mail.example
+From: "DocuSign via eSignature" <notice@docusign-mail.example>
+To: "Alex Rivera" <alex@example.net>
+Subject: Completed: Please review and sign - Q4 Payroll Adjustment
+Date: Wed, 11 Nov 2026 14:02:10 +0000
+Message-ID: <synthetic-0007@docusign-mail.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="orig"
+`;
+const lureHtmlLink = 'https://sign-docs.example/view?ti=7f3a';
+const lureRtf = String.raw`{\rtf1\ansi\ansicpg1252\fromhtml1 \deff0{\fonttbl
+{\f0\fswiss Arial;}
+{\f1\fmodern Courier New;}}
+{\colortbl\red0\green0\blue0;\red0\green0\blue255;}
+\uc1\pard\plain\deftab360 \f0\fs20 
+{\*\htmltag19 <html>}
+{\*\htmltag50 <body>}\htmlrtf \lang1033 \htmlrtf0 
+{\*\htmltag64 <p>}\htmlrtf {\htmlrtf0 SYNTHETIC SAMPLE. Alex Rivera, a document is waiting for your signature: Q4 Payroll Adjustment.\htmlrtf\par}\htmlrtf0
+{\*\htmltag72 </p>}
+{\*\htmltag64 <p>}\htmlrtf {\htmlrtf0 Review and sign within 24 hours or the request expires. Confirm your email to open the document.\htmlrtf\par}\htmlrtf0
+{\*\htmltag72 </p>}
+{\*\htmltag64 <p>}{\*\htmltag84 <a href="${lureHtmlLink}">}\htmlrtf {\field{\*\fldinst{HYPERLINK "${lureHtmlLink}"}}{\fldrslt\cf1\ul \htmlrtf0 https://www.docusign.net/Signing/?ti=7f3a\htmlrtf }\htmlrtf0 }\htmlrtf0 {\*\htmltag92 </a>}
+{\*\htmltag72 </p>}
+{\*\htmltag64 <p>}\htmlrtf {\htmlrtf0 Questions? Do not reply to this email \endash  contact the sender.\htmlrtf\par}\htmlrtf0
+{\*\htmltag72 </p>}
+{\*\htmltag58 </body>}
+{\*\htmltag27 </html>}}`;
+const lureText = `SYNTHETIC SAMPLE. Alex Rivera, a document is waiting for your signature: Q4 Payroll Adjustment.
+
+Review and sign within 24 hours or the request expires. Confirm your email to open the document.
+
+https://www.docusign.net/Signing/?ti=7f3a <${lureHtmlLink}>
+
+Questions? Do not reply to this email - contact the sender.
+`;
+const enc = new TextEncoder();
+const msg = makeMsg({
+  strings: {
+    0x001a: 'IPM.Note',
+    0x0037: 'Completed: Please review and sign - Q4 Payroll Adjustment',
+    0x0c1a: 'DocuSign via eSignature',
+    0x0c1f: 'notice@docusign-mail.example',
+    0x5d01: 'notice@docusign-mail.example',
+    0x0e04: 'Alex Rivera',
+    0x007d: lureHeaders.replace(/\n/g, '\r\n'),
+    0x1000: lureText.replace(/\n/g, '\r\n'),
+    0x1035: '<synthetic-0007@docusign-mail.example>',
+  },
+  binaries: { 0x1009: compressRtf(enc.encode(lureRtf.replace(/\n/g, '\r\n'))) },
+  longs: { 0x3fde: 20127 },
+  times: { 0x0039: new Date('2026-11-11T14:02:10Z'), 0x0e06: new Date('2026-11-11T14:02:19Z') },
+  recipients: [{ strings: { 0x3001: 'Alex Rivera', 0x39fe: 'alex@example.net', 0x3003: 'alex@example.net' }, longs: { 0x0c15: 1 } }],
+  attachments: [
+    {
+      strings: { 0x3707: 'Payroll_Adjustment.htm', 0x3704: 'PAYROL~1.HTM', 0x370e: 'text/html' },
+      binaries: { 0x3701: enc.encode(fakeLoginHtml) },
+      longs: { 0x3705: 1 },
+    },
+  ],
+});
+writeFileSync(new URL('../samples/07-outlook-sign-request.msg', import.meta.url), msg);
+console.log('wrote 07-outlook-sign-request.msg');
