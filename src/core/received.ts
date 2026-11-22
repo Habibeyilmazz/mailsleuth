@@ -27,9 +27,12 @@ export function parseReceived(raw: string): Omit<Hop, 'index' | 'delaySeconds'> 
   const semi = value.lastIndexOf(';');
   const main = semi >= 0 ? value.slice(0, semi) : value;
   const date = semi >= 0 ? parseDate(value.slice(semi + 1)) : null;
-  const from = /\bfrom\s+([^\s;()]+)(\s*\([^)]*\))?/i.exec(main);
-  const by = /\bby\s+([^\s;()]+)/i.exec(main);
-  const withProto = /\bwith\s+([^\s;()]+)/i.exec(main);
+  // "from" is always the first clause; anywhere else it is inside a comment, as in
+  // Postfix's "by host (Postfix, from userid 0)". by/with are matched outside comments.
+  const from = /^\s*from\s+([^\s;()]+)(\s*\([^)]*\))?/i.exec(main);
+  const bare = main.replace(/\([^()]*\)/g, ' ');
+  const by = /\bby\s+([^\s;()]+)/i.exec(bare);
+  const withProto = /\bwith\s+([^\s;()]+)/i.exec(bare);
   // Prefer the IP the receiving server recorded (in the comment after "from").
   const ipSource = from?.[2] ?? main;
   const ip = IP_RE.exec(ipSource) ?? IP_RE.exec(main);

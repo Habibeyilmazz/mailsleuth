@@ -113,6 +113,10 @@ describe('received', () => {
     const h = parseReceived('from mail.a.example (mail.a.example [203.0.113.5]) by mx.b.example with ESMTPS id 1; Tue, 10 Nov 2026 09:00:00 +0100 (CET)');
     expect(h).toMatchObject({ from: 'mail.a.example', fromIp: '203.0.113.5', by: 'mx.b.example', protocol: 'ESMTPS', date: '2026-11-10T08:00:00.000Z' });
   });
+  it('ignores "from" and "by" inside comments', () => {
+    expect(parseReceived('by mail.a.example (Postfix, from userid 0) id ABC; Tue, 10 Nov 2026 09:00:00 +0000')).toMatchObject({ from: null, by: 'mail.a.example' });
+    expect(parseReceived('from a.example (helo sent by x.example [192.0.2.1]) by mx.b.example; Tue, 10 Nov 2026 09:00:00 +0000')).toMatchObject({ from: 'a.example', by: 'mx.b.example' });
+  });
   it('orders hops oldest first and computes delays', () => {
     const hops = buildHops([
       'from b by c; Tue, 10 Nov 2026 09:05:00 +0000',
