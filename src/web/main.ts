@@ -66,6 +66,9 @@ async function run(input: string | File, label: string) {
       if (typeof input === 'string') paste.focus();
       return;
     }
+    // Let "Analyzing…" paint before the synchronous parse, so a click on a big paste answers at once.
+    await new Promise((done) => requestAnimationFrame(() => setTimeout(done)));
+    if (ticket !== runs) return;
     const analysis = await analyze(binary);
     if (ticket !== runs) return; // the user already started another analysis
     stack = [{ label, analysis }];
