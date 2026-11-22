@@ -276,4 +276,11 @@ describe('language', () => {
       expect(scanLanguage(text).map((h) => h.category), text).toEqual(['threat']);
     }
   });
+  it('reads payroll diversion requests', () => {
+    // The commonest BEC ask after gift cards; "update your bank details" scored 0.
+    for (const text of ['Kindly update your bank details for payroll.', 'I need to change my direct deposit information.', 'Please update my payroll account before Friday.']) {
+      expect(scanLanguage(text).map((h) => h.category), text).toEqual(['money']);
+    }
+    expect(scanLanguage('Your payroll account summary for November is ready.')).toEqual([]);
+  });
 });

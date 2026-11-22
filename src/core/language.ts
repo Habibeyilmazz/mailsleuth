@@ -28,7 +28,7 @@ const PATTERNS: Record<LanguageCategory, RegExp[]> = {
   money: [
     /\bgift ?cards?\b/i,
     /\bwire transfer\b/i,
-    /\b(change|update)[sd]? (of |to |in )?(our |my |the )?(bank|banking|payment) (details|account|information)\b/i,
+    /\b(change|update)[sd]? (of |to |in )?(our |my |your |the )?(bank|banking|payment|direct deposit|payroll) (details|account|information|info)\b/i,
     /\b(invoice|payment) (is )?(overdue|past due|attached|failed|declined|pending)\b/i,
     /\b(bitcoin|crypto(currency)?|usdt) (payment|wallet|address)\b/i,
     /\b(refund|tax refund|unclaimed|compensation) (is )?(available|pending|approved)\b/i,
