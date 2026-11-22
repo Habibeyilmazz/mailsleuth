@@ -17,7 +17,8 @@ export interface Hop {
 const IP_RE = /\[(?:IPv6:)?([0-9a-fA-F:.]+)\]|\b(\d{1,3}(?:\.\d{1,3}){3})\b/;
 
 export function parseDate(text: string): Date | null {
-  const cleaned = text.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+  // [^()] not [^)]: the latter rescans to the end from every "(" and is quadratic on "((((…".
+  const cleaned = text.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
   const t = Date.parse(cleaned);
   return Number.isNaN(t) ? null : new Date(t);
 }

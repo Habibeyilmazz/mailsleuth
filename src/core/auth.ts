@@ -93,6 +93,23 @@ function explain(method: string, result: string, domain: string | null, comments
   return { explanation: `${method} check result: ${result}.`, tone: result === 'pass' ? 'good' : result === 'fail' ? 'bad' : 'neutral' };
 }
 
+/**
+ * Replaces each comment, nested ones included (RFC 5322), with a space in one pass.
+ * Peeling one nesting level per pass was quadratic: 200,000 nested "(" took minutes.
+ * An unclosed "(" comments out the rest, like a mail parser would.
+ */
+function stripComments(s: string): string {
+  let out = '';
+  let depth = 0;
+  for (const c of s) {
+    if (c === '(') depth++;
+    else if (c === ')' && depth) {
+      if (--depth === 0) out += ' ';
+    } else if (!depth) out += c;
+  }
+  return out;
+}
+
 export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Authentication-Results'): AuthHeader {
   const segments = splitParams(decodeRawHeader(raw));
   let instance: number | null = null;
@@ -101,9 +118,7 @@ export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Au
   const results: AuthResult[] = [];
   for (const seg of segments) {
     const comments = [...seg.matchAll(/\(([^()]*)\)/g)].map((m) => m[1]);
-    let text = seg;
-    // Comments can nest (RFC 5322); peel them from the inside out.
-    for (let prev = ''; prev !== text; ) [prev, text] = [text, text.replace(/\([^()]*\)/g, ' ')];
+    const text = stripComments(seg);
     const m = /^\s*([\w.-]+)(?:\s*\/\s*\d+)?\s*=\s*([\w-]+)/.exec(text);
     if (!m) continue;
     const method = m[1].toLowerCase();

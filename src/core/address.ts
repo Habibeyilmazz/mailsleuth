@@ -40,16 +40,17 @@ export function parseAddressList(raw: string | null): Address[] {
   // Split before decoding: an encoded display name may contain commas.
   const value = raw.replace(/^[^"<>@,]*:\s*/, '').replace(/;\s*$/, '');
   return splitList(value).map((entry) => {
-    const angle = /<([^<>]*)>\s*(?:\([^)]*\))?\s*$/.exec(entry);
+    // Comments match as [^()]*, never [^)]*: that rescans to the end from every "(" (quadratic on "((((…").
+    const angle = /<([^<>]*)>\s*(?:\([^()]*\))?\s*$/.exec(entry);
     let address: string;
     let name: string;
     if (angle) {
       address = angle[1].trim();
       name = entry.slice(0, angle.index).trim();
     } else {
-      const comment = /\(([^)]*)\)/.exec(entry);
+      const comment = /\(([^()]*)\)/.exec(entry);
       name = comment ? comment[1].trim() : '';
-      address = entry.replace(/\([^)]*\)/g, '').trim();
+      address = entry.replace(/\([^()]*\)/g, '').trim();
     }
     name = decodeHeaderValue(name.replace(/^"(.*)"$/s, '$1').replace(/\\(.)/g, '$1')).trim();
     address = decodeHeaderValue(address).replace(/^mailto:/i, '');
@@ -67,5 +68,6 @@ export function parseReturnPath(raw: string | null): Address | null {
 
 /** Pulls every email address that appears in free text (e.g. a display name). */
 export function findEmailsInText(text: string): string[] {
-  return text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? [];
+  // The lookbehind starts a match only at the start of a run; without it "a.a.a.…" with no "@" is quadratic.
+  return text.match(/(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? [];
 }

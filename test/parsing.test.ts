@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseAddressList, parseReturnPath } from '../src/core/address';
+import { findEmailsInText, parseAddressList, parseReturnPath } from '../src/core/address';
+import { inspectDomain } from '../src/core/domains';
 import { buildAuthReport, parseAuthResults } from '../src/core/auth';
 import { decodeHeaderValue, decodeQuotedPrintable, htmlToText, sha256Hex, textToBinary } from '../src/core/encoding';
 import { isAttachment, parseMessage, parseStructuredHeader, walkParts } from '../src/core/mime';
@@ -100,9 +101,32 @@ describe('hostile MIME input', () => {
     expect(msg.children).toHaveLength(1);
     expect(performance.now() - t).toBeLessThan(500);
   });
+  // Each of these took 10 s to minutes on 200 KB before the fix (quadratic regexes / loops).
+  const fast = (fn: () => unknown) => {
+    const t = performance.now();
+    fn();
+    expect(performance.now() - t).toBeLessThan(500);
+  };
+  it('parses hostile address headers in linear time', () => {
+    fast(() => parseAddressList('('.repeat(200000)));
+    fast(() => parseAddressList('<a>(x'.repeat(40000)));
+    fast(() => findEmailsInText('a.'.repeat(200000)));
+  });
+  it('parses deeply nested Authentication-Results comments in linear time', () => {
+    fast(() => expect(parseAuthResults(`mx; spf=pass ${'('.repeat(200000)}x${')'.repeat(200000)} smtp.mailfrom=a@b.example`).results[0].domain).toBe('b.example'));
+  });
+  it('parses a Received date full of "(" in linear time', () => {
+    fast(() => expect(parseReceived(`from a by b; ${'('.repeat(200000)}`).date).toBeNull());
+  });
+  it('checks a huge host name against every brand quickly', () => {
+    fast(() => inspectDomain(`${'paypa1-'.repeat(100000)}.com`));
+  });
 });
 
 describe('addresses', () => {
+  it('still finds addresses inside display names', () => {
+    expect(findEmailsInText('PayPal (service@paypal.example) via x')).toEqual(['service@paypal.example']);
+  });
   it('parses names, quoted commas, encoded names and bare addresses', () => {
     const list = parseAddressList('"Doe, Jane" <jane@example.com>, =?UTF-8?Q?Jos=C3=A9?= <jose@Example.ORG>, bob@example.net (Bob)');
     expect(list).toEqual([
