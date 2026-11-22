@@ -54,10 +54,10 @@ export function levenshtein(a: string, b: string): number {
 // Brand labels that are also everyday words; matching them would flag half the internet.
 const GENERIC_LABELS = new Set(['live', 'office', 'me', 'mac', 'zoom', 'slack', 'wise', 'chase', 'visa', 'booking', 'meta', 'msn', 'x', 'fb', 'wf', 'aws']);
 
-const BRAND_LABELS: { label: string; brand: Brand }[] = BRANDS.flatMap((brand) =>
+const BRAND_LABELS: { label: string; skel: string; brand: Brand }[] = BRANDS.flatMap((brand) =>
   [...new Set(brand.domains.map((d) => orgDomain(d).split('.')[0]))]
     .filter((label) => label.length >= 3 && !GENERIC_LABELS.has(label))
-    .map((label) => ({ label, brand })),
+    .map((label) => ({ label, skel: skeleton(label), brand })),
 );
 
 export type DomainIssueKind = 'idn' | 'homoglyph' | 'lookalike' | 'brand-in-domain' | 'abused-tld';
@@ -88,12 +88,12 @@ export function inspectDomain(rawDomain: string): DomainIssue[] {
   const tokens = [...new Set(labels.flatMap((l) => [l, ...l.split('-')]).filter(Boolean))];
   const skel = new Map(tokens.map((t) => [t, skeleton(t)])); // once per token, not once per brand
   const seen = new Set<string>();
-  for (const { label, brand } of BRAND_LABELS) {
+  for (const { label, skel: labelSkel, brand } of BRAND_LABELS) {
     if (seen.has(brand.name)) continue;
     for (const token of tokens) {
       let kind: DomainIssueKind | null = null;
       if (token === label) kind = 'brand-in-domain';
-      else if (skel.get(token) === skeleton(label)) kind = /[^\x00-\x7f]/.test(token) ? 'homoglyph' : 'lookalike';
+      else if (skel.get(token) === labelSkel) kind = /[^\x00-\x7f]/.test(token) ? 'homoglyph' : 'lookalike';
       // Same first letter and no short tokens: without this, everyday words like "cloud"
       // (icloud), "finance" (binance) and "strip" (stripe) were flagged as look-alikes.
       else if (label.length >= 6 && token.length >= 6 && token[0] === label[0] && /^[a-z0-9]+$/.test(token) && levenshtein(token, label) === 1) kind = 'lookalike';
