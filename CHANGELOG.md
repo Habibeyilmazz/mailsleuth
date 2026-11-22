@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Pasted body text without headers was silently dropped and scored 0; it is now analyzed (links, wording) with a note that sender and authentication checks need the full source.
+- Look-alike false positives: everyday words one edit away from a brand ("cloud", "finance", "strip") and the surname Norton or the word "outlook" in a display name no longer score as brand impersonation.
+- Authentication-Results counted as verified when its server matched a forged lower `Received` hop or had no server name; it must now match the newest receiving hop (or a Microsoft 365 hop when unnamed).
+- RFC 2045 comments in `Content-Type` / `Content-Transfer-Encoding` hid attachments.
+- Link extraction evasions: `href` hidden inside another attribute's value, `>` in quoted attributes, `&colon;` and other named entities, `<span>`-split link text; a new `<a>` now ends the previous one.
+- Thousands of unterminated tags made HTML scanning quadratic (30 s for 300 KB); now linear.
+- File extensions, entities and auth results named like `Object.prototype` keys (`x.constructor`) crashed or garbled output.
+- A second, riskier attached email did not raise the "attached email" severity, so attachment order changed the verdict.
+- Postfix-style `Received: by host (Postfix, from userid 0)` showed a hop "from userid".
+- README brand count (44, not 43); the CLI build no longer copies the web favicon.
+
+### Notes for the next contributor
+- Sample 05 imitates Microsoft 365 headers with reserved `example.net` host names, so it now shows "cannot be tied to a receiving server"; that is the new rule working, not a bug.
+- Codex hit its usage limit mid-review; areas it did not finish: CLI and web UI code paths.
+
 ## [0.1.0] - 2026-11-22
 
 ### Added
