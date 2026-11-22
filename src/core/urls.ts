@@ -192,7 +192,7 @@ export function extractHtmlLinks(html: string): { href: string; text: string }[]
 
 export function extractTextLinks(text: string): string[] {
   return (text.match(/\b(?:https?:\/\/|www\.)[^\s<>"'\])]+/gi) ?? []).map((u) => {
-    const clean = u.replace(/[.,;:!?]+$/, '');
+    const clean = u.replace(/(?<![.,;:!?])[.,;:!?]+$/, ''); // lookbehind: a long punctuation run is tried once, not from every position
     return /^www\./i.test(clean) ? 'http://' + clean : clean;
   });
 }

@@ -62,6 +62,12 @@ describe('links', () => {
     expect(extractHtmlLinks(html).map((l) => l.href)).toEqual(['https://evil.example/kit/login.html', 'https://ok.example/', '#top']);
     expect(extractHtmlLinks('<a href="login.html">x</a>')[0].href).toBe('login.html');
   });
+  it('trims trailing punctuation from text links in linear time', () => {
+    expect(extractTextLinks('see www.example.com/a.')).toEqual(['http://www.example.com/a']);
+    const t = performance.now();
+    extractTextLinks('www.' + ','.repeat(200000) + 'X');
+    expect(performance.now() - t).toBeLessThan(500);
+  });
   it('finds protocol-relative and SVG xlink:href links', () => {
     expect(extractHtmlLinks('<a href="//evil.example/a.exe">x</a>')[0].href).toBe('https://evil.example/a.exe');
     expect(extractHtmlLinks('<svg><a xlink:href="https://evil.example/a.exe"><text>x</text></a></svg>')[0].href).toBe('https://evil.example/a.exe');

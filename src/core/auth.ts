@@ -97,7 +97,7 @@ export function parseAuthResults(raw: string, header: AuthHeader['header'] = 'Au
   const segments = splitParams(decodeRawHeader(raw));
   let instance: number | null = null;
   if (segments[0] && /^i\s*=\s*\d+$/i.test(segments[0])) instance = Number(segments.shift()!.split('=')[1]);
-  const authservId = segments[0] && !/^[\w.-]+\s*=/.test(segments[0]) ? stripComments(segments.shift()!).trim().replace(/\s+\d+$/, '') : '';
+  const authservId = segments[0] && !/^[\w.-]+\s*=/.test(segments[0]) ? stripComments(segments.shift()!).trim().replace(/(?<!\s)\s+\d+$/, '') : ''; // lookbehind: a whitespace run is tried once, not from every position
   const results: AuthResult[] = [];
   for (const seg of segments) {
     const comments = [...seg.matchAll(/\(([^()]*)\)/g)].map((m) => m[1]);

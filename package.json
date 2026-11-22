@@ -18,6 +18,7 @@
     "preview": "vite preview --port 4191 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "fuzz": "FUZZ=1 vitest run test/fuzz.test.ts",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {

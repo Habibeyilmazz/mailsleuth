@@ -131,6 +131,8 @@ describe('hostile MIME input', () => {
   it('stays linear on whitespace runs and long words (second-opinion review)', () => {
     fast(() => htmlToText('\r'.repeat(200000) + 'X'));
     fast(() => parseAuthResults('mx; spf=pass ' + 'a'.repeat(200000)));
+    fast(() => parseAuthResults('mx' + '\t'.repeat(200000) + 'x; spf=pass'));
+    expect(parseAuthResults('mx.example.net 1; spf=pass').authservId).toBe('mx.example.net');
     fast(() => parseAddressList('<a>' + ' '.repeat(200000) + 'X'));
   });
   it('checks a huge host name against every brand quickly', () => {
