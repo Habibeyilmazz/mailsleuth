@@ -1,0 +1,25 @@
+Received: from AM0PR01MB1234.eurprd01.prod.example.net (2001:db8::25) by
+ AM0PR01MB9999.eurprd01.prod.example.net with HTTPS; Mon, 16 Nov 2026 08:01:15 +0000
+Received: from mta.dhl-parcel-tracking.example (203.0.113.80) by
+ AM0PR01MB1234.eurprd01.prod.example.net (2001:db8::25) with Microsoft SMTP Server; Mon, 16 Nov 2026 08:01:13 +0000
+Authentication-Results: spf=fail (sender IP is 203.0.113.80)
+ smtp.mailfrom=dhl-parcel-tracking.example; dkim=none (message not signed)
+ header.d=none;dmarc=fail action=quarantine
+ header.from=dhl-parcel-tracking.example;compauth=fail reason=000
+From: "DHL Express" <noreply@dhl-parcel-tracking.example>
+To: alex@example.net
+Subject: Delivery attempt failed - reschedule within 48 hours
+Date: Mon, 16 Nov 2026 08:01:09 +0000
+Message-ID: <synthetic-0005@dhl-parcel-tracking.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<p>We were unable to deliver your parcel. A customs fee of 1.99 EUR is pending.</p>
+<p>Reschedule within 48 hours or the parcel will be returned:</p>
+<p><a href="https://bit.ly/mailsleuth-synthetic-sample">Track my parcel</a></p>
+<p><a href="https://www.dhl.com@203.0.113.7/redelivery">https://www.dhl.com/redelivery</a></p>
+<p><a href="http://3325256727/fee">Pay customs fee</a></p>
+<p><a href="https://urldefense.proofpoint.com/v2/url?u=https-3A__dhl-2Dredelivery.example_label.zip&amp;d=DwMFaQ&amp;c=x">Download shipping label</a></p>
+<p><a href="data:text/html;base64,PGgxPlN5bnRoZXRpYyBzYW1wbGU8L2gxPg==">View receipt</a></p>
+</body></html>

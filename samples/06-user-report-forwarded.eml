@@ -1,0 +1,68 @@
+From: "Alex Rivera" <alex@example.net>
+To: "Security Team" <phishing-reports@example.net>
+Subject: Fwd: Your account has been limited - is this real?
+Date: Tue, 10 Nov 2026 09:20:00 +0000
+Message-ID: <synthetic-0006@example.net>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="fwd"
+
+--fwd
+Content-Type: text/plain; charset=utf-8
+
+Hi, I got this and I'm not sure if it's legit. Didn't click anything.
+Alex
+--fwd
+Content-Type: message/rfc822
+Content-Disposition: attachment; filename="Your account has been limited.eml"
+
+Return-Path: <bounce-7731@mailer.paypa1-secure.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 88AB12; Tue, 10 Nov 2026 09:14:52 +0000
+Received: from mailer.paypa1-secure.example (mailer.paypa1-secure.example [203.0.113.45])
+ by mx1.example.net with ESMTPS id 4f1c2d; Tue, 10 Nov 2026 09:14:50 +0000
+Received: from [10.0.0.12] (unknown [198.51.100.77])
+ by mailer.paypa1-secure.example with ESMTPSA id 77aa; Tue, 10 Nov 2026 09:06:31 +0000
+Authentication-Results: mx1.example.net;
+ spf=softfail (example.net: domain of transitioning bounce-7731@mailer.paypa1-secure.example does not designate 203.0.113.45 as permitted sender) smtp.mailfrom=bounce-7731@mailer.paypa1-secure.example;
+ dkim=none;
+ dmarc=none header.from=paypa1-secure.example
+From: "PayPal" <service@paypa1-secure.example>
+Reply-To: <case-review@account-help.example>
+To: alex@example.net
+Subject: =?UTF-8?Q?Your_account_has_been_limited_=E2=80=93_action_required?=
+Date: Tue, 10 Nov 2026 09:06:30 +0000
+Message-ID: <synthetic-0001@paypa1-secure.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Dear Customer,
+
+We noticed unusual sign-in activity and your account has been limited.
+Please verify your account within 24 hours or it will be permanently suspended.
+
+Verify now: https://www.paypal.com/signin
+
+PayPal Security Team
+--b1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body style=3D"font-family:Arial">
+<p>Dear Customer,</p>
+<p>We noticed <b>unusual sign-in activity</b> and your account has been limite=
+d.</p>
+<p>Please verify your account within 24 hours or it will be permanently suspe=
+nded.</p>
+<p><a href=3D"https://nam12.safelinks.protection.outlook.com/?url=3Dhttps%3A%2F=
+%2Fxn--pypal-4ve.example%2Fsignin%3Fsession%3D8812&amp;data=3D05%7C01&amp;reser=
+ved=3D0">https://www.paypal.com/signin</a></p>
+<p><a href=3D"http://paypal.com.session-review.example/login?id=3D8812">Review =
+recent activity</a></p>
+<p>PayPal Security Team</p>
+</body></html>
+--b1--
+
+--fwd--

@@ -1,0 +1,28 @@
+Return-Path: <ceo.office.dw@quickmail-hub.example>
+Received: from mx1.example.net (mx1.example.net [192.0.2.10])
+ by mailstore.example.net with LMTP id 1d1d; Fri, 13 Nov 2026 16:41:12 +0000
+Received: from out.quickmail-hub.example (out.quickmail-hub.example [203.0.113.200])
+ by mx1.example.net with ESMTPS id 2e2e; Fri, 13 Nov 2026 16:41:10 +0000
+Received: from relay7.quickmail-hub.example (relay7.quickmail-hub.example [203.0.113.207])
+ by out.quickmail-hub.example with ESMTP id 3f3f; Fri, 13 Nov 2026 16:58:40 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=ceo.office.dw@quickmail-hub.example;
+ dkim=pass header.i=@quickmail-hub.example;
+ dmarc=pass header.from=quickmail-hub.example
+From: "Dana Whitfield <dana.whitfield@northwind-traders.example>" <ceo.office.dw@quickmail-hub.example>
+Reply-To: <dwhitfield.exec@secure-reply.example>
+To: "Sam Okafor" <sam.okafor@northwind-traders.example>
+Subject: Quick favour - are you at your desk?
+Date: Fri, 13 Nov 2026 16:58:38 +0000
+Message-ID: <synthetic-0004@quickmail-hub.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Sam,
+
+I'm stuck in back-to-back meetings and need a favour. Please buy 6 gift cards
+($200 each) for a client appreciation event today. Keep this between us for now,
+it's a surprise. Scratch the codes and send me photos ASAP.
+
+Dana
+Sent from my phone

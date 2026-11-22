@@ -1,0 +1,58 @@
+Return-Path: <billing@contoso-supplies.example>
+Received: from smtp.contoso-supplies.example (smtp.contoso-supplies.example [198.51.100.20])
+ by mx1.example.net with ESMTPS id 99c1; Wed, 11 Nov 2026 14:02:07 +0000
+Received: from workstation-14 (unknown [10.20.0.14])
+ by smtp.contoso-supplies.example with ESMTPSA id 1a2b; Wed, 11 Nov 2026 14:02:05 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass (example.net: domain of billing@contoso-supplies.example designates 198.51.100.20 as permitted sender) smtp.mailfrom=billing@contoso-supplies.example;
+ dkim=pass header.i=@contoso-supplies.example header.s=s1 header.b=AbCdEf12;
+ dmarc=pass (p=QUARANTINE sp=QUARANTINE dis=NONE) header.from=contoso-supplies.example
+From: "Contoso Supplies Billing" <billing@contoso-supplies.example>
+Reply-To: "Accounts" <payments@contoso-billing.example.org>
+To: "Accounts Payable" <ap@example.net>
+Subject: Invoice 88231 overdue - updated payment details
+Date: Wed, 11 Nov 2026 14:02:03 +0000
+Message-ID: <synthetic-0002@contoso-supplies.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix"
+
+--mix
+Content-Type: text/plain; charset=us-ascii
+
+Hello,
+
+Our records show invoice 88231 is overdue. Please note we have changed our bank details,
+see the attached invoice and remittance form. Kindly process the payment urgently.
+
+If the document shows a security warning, click "Enable content" to view it.
+
+Regards,
+Contoso Supplies Billing
+--mix
+Content-Type: application/vnd.ms-word.document.macroEnabled.12; name="Invoice_88231.docm"
+Content-Disposition: attachment; filename="Invoice_88231.docm"
+Content-Transfer-Encoding: base64
+
+UEsDBBQAAAAAAAAAAADmuHRrYgAAAGIAAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbDw/eG1sIHZl
+cnNpb249IjEuMCI/PjxUeXBlcyB4bWxucz0iaHR0cDovL3NjaGVtYXMub3BlbnhtbGZvcm1hdHMu
+b3JnL3BhY2thZ2UvMjAwNi9jb250ZW50LXR5cGVzIi8+UEsDBBQAAAAAAAAAAAB5En2iTgAAAE4A
+AAARAAAAd29yZC9kb2N1bWVudC54bWw8dzpkb2N1bWVudD48IS0tIG1haWxzbGV1dGggc3ludGhl
+dGljIHNhbXBsZTogbm8gcmVhbCBjb250ZW50IC0tPjwvdzpkb2N1bWVudD5QSwMEFAAAAAAAAAAA
+AD9qUH9AAAAAQAAAABMAAAB3b3JkL3ZiYVByb2plY3QuYmluU1lOVEhFVElDIFBMQUNFSE9MREVS
+IC0gbm90IGEgcmVhbCBWQkEgcHJvamVjdCwgY29udGFpbnMgbm8gY29kZVBLAQIUABQAAAAAAAAA
+AADmuHRrYgAAAGIAAAATAAAAAAAAAAAAAAAAAAAAAABbQ29udGVudF9UeXBlc10ueG1sUEsBAhQA
+FAAAAAAAAAAAAHkSfaJOAAAATgAAABEAAAAAAAAAAAAAAAAAkwAAAHdvcmQvZG9jdW1lbnQueG1s
+UEsBAhQAFAAAAAAAAAAAAD9qUH9AAAAAQAAAABMAAAAAAAAAAAAAAAAAEAEAAHdvcmQvdmJhUHJv
+amVjdC5iaW5QSwUGAAAAAAMAAwDBAAAAgQEAAAAA
+--mix
+Content-Type: text/html; name="Remittance_Advice.pdf.html"
+Content-Disposition: attachment; filename="Remittance_Advice.pdf.html"
+Content-Transfer-Encoding: base64
+
+PCFkb2N0eXBlIGh0bWw+CjxodG1sPjxib2R5Pgo8aDE+U1lOVEhFVElDIFNBTVBMRTwvaDE+Cjxw
+PlRoaXMgZmlsZSBpbWl0YXRlcyB0aGUgSFRNTCAicmVtaXR0YW5jZSIgYXR0YWNobWVudHMgdXNl
+ZCBmb3IgY3JlZGVudGlhbCBwaGlzaGluZy4gSXQgaXMgaW5lcnQuPC9wPgo8Zm9ybSBhY3Rpb249
+Imh0dHBzOi8vY29sbGVjdC5pbnZhbGlkL3N1Ym1pdCIgbWV0aG9kPSJwb3N0Ij48aW5wdXQgbmFt
+ZT0iZW1haWwiPjxpbnB1dCBuYW1lPSJwYXNzd29yZCIgdHlwZT0icGFzc3dvcmQiPjwvZm9ybT4K
+PC9ib2R5PjwvaHRtbD4=
+--mix--

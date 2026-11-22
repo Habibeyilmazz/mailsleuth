@@ -1,0 +1,43 @@
+Return-Path: <bounces+4471@mail.northwind-garden.example>
+Received: from o1.mail.northwind-garden.example (o1.mail.northwind-garden.example [198.51.100.150])
+ by mx1.example.net with ESMTPS id 3c3c; Thu, 12 Nov 2026 07:30:04 +0000
+Received: by o1.mail.northwind-garden.example with SMTP id 0x9; Thu, 12 Nov 2026 07:30:01 +0000
+Authentication-Results: mx1.example.net;
+ spf=pass smtp.mailfrom=bounces+4471@mail.northwind-garden.example;
+ dkim=pass header.i=@northwind-garden.example header.s=nw1;
+ dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=northwind-garden.example;
+ arc=none
+From: "Northwind Gardening Club" <news@northwind-garden.example>
+To: alex@example.net
+Subject: =?UTF-8?B?Tm92ZW1iZXIgaW4gdGhlIGdhcmRlbiDwn4yx?=
+Date: Thu, 12 Nov 2026 07:30:00 +0000
+Message-ID: <synthetic-0003@northwind-garden.example>
+List-Unsubscribe: <https://northwind-garden.example/unsubscribe?u=4471>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="nw"
+
+--nw
+Content-Type: text/plain; charset=utf-8
+
+Hi Alex,
+
+November is the time to plant garlic and spring bulbs. This month:
+- Five bulbs that survive a late frost
+- How to store dahlia tubers over winter
+
+Read online: https://northwind-garden.example/newsletter/2026-11
+
+You are receiving this because you joined the Northwind Gardening Club.
+Unsubscribe: https://northwind-garden.example/unsubscribe?u=4471
+--nw
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<p>Hi Alex,</p>
+<p>November is the time to plant garlic and spring bulbs. This month:</p>
+<ul><li>Five bulbs that survive a late frost</li><li>How to store dahlia tubers over winter</li></ul>
+<p><a href="https://northwind-garden.example/newsletter/2026-11">Read online</a></p>
+<p><small>You are receiving this because you joined the Northwind Gardening Club.
+<a href="https://northwind-garden.example/unsubscribe?u=4471">Unsubscribe</a></small></p>
+</body></html>
+--nw--
