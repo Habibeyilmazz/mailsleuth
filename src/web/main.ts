@@ -282,7 +282,7 @@ function renderAttachments(a: Analysis) {
 
 function renderRaw(a: Analysis) {
   return section('raw', 'Structure and headers', null,
-    h('details', {}, h('summary', {}, `MIME structure (${a.structure.length} parts)`),
+    h('details', {}, h('summary', {}, `MIME structure (${a.structure.length} part${a.structure.length === 1 ? '' : 's'})`),
       h('ul', { class: 'tree mono small' }, a.structure.map((p) => {
         const li = h('li', {}, `${p.contentType}${p.filename ? `  “${p.filename}”` : ''}${p.size ? `  ${formatBytes(p.size)}` : ''}`);
         li.style.paddingLeft = `${p.depth * 1.25}rem`;
