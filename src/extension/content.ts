@@ -57,13 +57,13 @@ window.addEventListener('message', (e) => {
   if (e.origin === EXT_ORIGIN && frame && e.source === frame.contentWindow && e.data?.type === 'close') closePanel();
 });
 
-// Neutral colours taken from the surrounding text, so the chip suits Gmail's light and dark themes.
+// Solid blue with white text (6.6:1 contrast) stands out on both Gmail's light and dark themes.
 const style = document.createElement('style');
-style.textContent = `.mailsleuth-chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;margin:0;
-font:500 12px/1 "Google Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:inherit;background:transparent;
-border:1px solid rgba(128,128,128,.45);border-radius:999px;cursor:pointer;opacity:.85}
-.mailsleuth-chip:hover{opacity:1;background:rgba(128,128,128,.16)}
-.mailsleuth-chip:focus-visible{opacity:1;outline:2px solid #0b8a8f;outline-offset:2px}`;
+style.textContent = `.mailsleuth-chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px 0 8px;margin:0;
+font:500 12px/1 "Google Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;background:#0b57d0;
+border:0;border-radius:999px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.mailsleuth-chip:hover{background:#0842a0}
+.mailsleuth-chip:focus-visible{outline:2px solid #a8c7fa;outline-offset:2px}`;
 document.head.append(style);
 
 function shieldIcon(): SVGSVGElement {
@@ -97,7 +97,7 @@ function addButtons() {
     button.className = 'mailsleuth-chip';
     button.setAttribute('aria-label', 'Check with mailsleuth');
     button.title = 'Check this email for phishing signs (mailsleuth, offline)';
-    button.append(shieldIcon(), 'Check');
+    button.append(shieldIcon(), 'Check with mailsleuth');
     // The chip sits in Gmail's header, where a click would also collapse the message.
     for (const type of ['mousedown', 'mouseup', 'click']) button.addEventListener(type, (e) => e.stopPropagation());
     button.addEventListener('click', () => void check(query, button));

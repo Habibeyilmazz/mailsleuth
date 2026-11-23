@@ -5,7 +5,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ## [Unreleased]
 
 ### Fixed
-- Extension: the button stretched into a tall coloured column beside the email, because Gmail lays each message out as a row. It is now a small "Check" chip in the sender line, next to Gmail's own unsubscribe link, with neutral colours for light and dark themes; clicking it no longer collapses the message.
+- Extension: the button stretched into a tall coloured column beside the email, because Gmail lays each message out as a row. It is now a small blue "Check with mailsleuth" chip in the sender line, next to Gmail's own unsubscribe link, readable in light and dark themes; clicking it no longer collapses the message.
 - Extension: "Check with mailsleuth" failed in Chrome with "Failed to fetch". Gmail redirects its download link to `mail-attachment.googleusercontent.com`, and the request was same-origin only, so the browser blocked the redirect. The redirect is now followed; a response from any host other than Gmail's two is discarded.
 
 ### Added (round 17: browser extension)
