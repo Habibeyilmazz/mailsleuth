@@ -32,12 +32,17 @@ export function rawMessageUrl(loc: { origin: string; pathname: string }, query: 
   return `${loc.origin}${path}?view=att&${query}&attid=0&disp=comp&safe=1&zw`;
 }
 
+/** Gmail answers the download link with a 302 to its attachment host; the body may come only from these two. */
+export const GMAIL_HOSTS = ['mail.google.com', 'mail-attachment.googleusercontent.com'];
+
 /**
- * Downloads the raw message with the tab's own Gmail session. mode 'same-origin' makes the browser refuse
- * any redirect to another host, so this one request is the only one the extension can make.
+ * Downloads the raw message with the tab's own Gmail session. Gmail cookies go only to mail.google.com
+ * (credentials 'same-origin'); the redirect target is authorized by the signed URL Gmail gives it.
  */
 export async function fetchRawMessage(url: string, fetchFn: typeof fetch = fetch): Promise<ArrayBuffer> {
-  const res = await fetchFn(url, { mode: 'same-origin', credentials: 'same-origin', cache: 'no-store' });
+  // A changing parameter, as Gmail.js does: repeating the exact URL can make the redirect bounce back and fail.
+  const res = await fetchFn(`${url}&ms=${Date.now()}`, { mode: 'cors', credentials: 'same-origin', cache: 'no-store' });
+  if (res.url && !GMAIL_HOSTS.includes(new URL(res.url).hostname)) throw new Error('Gmail redirected the download somewhere unexpected; nothing was read.');
   if (!res.ok) throw new Error(`Gmail answered ${res.status} instead of sending the message. Reload Gmail and try again.`);
   const buf = await res.arrayBuffer();
   const head = new TextDecoder().decode(buf.slice(0, 512)).trimStart().toLowerCase();

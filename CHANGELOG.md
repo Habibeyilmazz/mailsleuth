@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Fixed
+- Extension: "Check with mailsleuth" failed in Chrome with "Failed to fetch". Gmail redirects its download link to `mail-attachment.googleusercontent.com`, and the request was same-origin only, so the browser blocked the redirect. The redirect is now followed; a response from any host other than Gmail's two is discarded.
+
 ### Added (round 17: browser extension)
 Owner's feedback: nobody exports an email and pastes it into a web page. So the analyzer now comes to the email.
 - Manifest V3 extension for Chrome and other Chromium browsers (Firefox build included, untested): a **Check with mailsleuth** button above each open email in Gmail on the web. One click downloads that message's raw source through Gmail's own "Download message" link (`?view=att&permmsgid=…&attid=0&disp=comp&safe=1&zw`, legacy `th=<hex id>`), same-origin from the Gmail tab with its existing login (no OAuth, no API key), and shows the full existing result in a panel next to the email: score, level, reasons with evidence, links, attachment hashes with lookup buttons, Copy Markdown/JSON report, attached emails.

@@ -35,7 +35,7 @@ The toolbar button opens the same checker for an `.eml` or `.msg` file you choos
 **What it touches.**
 
 - It runs only on `https://mail.google.com/*` and asks for no other permissions: no tabs, storage, history, cookies or background worker. Chrome describes this as "Read and change your data on mail.google.com".
-- Nothing happens until you click. The click makes one request: Gmail's own "Download message" link for that email (`/mail/u/0/?view=att&permmsgid=…&attid=0&disp=comp&safe=1&zw`), from the Gmail tab, with the login that tab already has. No OAuth, no Google API key, no Google Cloud project. The request is same-origin only, so the browser refuses it if Gmail redirects it to another host.
+- Nothing happens until you click. The click makes one request: Gmail's own "Download message" link for that email (`/mail/u/0/?view=att&permmsgid=…&attid=0&disp=comp&safe=1&zw`), from the Gmail tab, with the login that tab already has. No OAuth, no Google API key, no Google Cloud project. Gmail answers that link with a redirect to its attachment host, `mail-attachment.googleusercontent.com`; the extension accepts a response only from that host or `mail.google.com`, and your Gmail cookies go only to `mail.google.com`.
 - The message goes straight to the extension's own panel page, which runs the same analysis as the web page. That page's Content-Security-Policy has `connect-src 'none'`, so it cannot send anything anywhere. Nothing is stored; closing the panel discards it.
 - As on the web page, text from the email is shown as plain text only, links are defanged and never clickable, and the lookup buttons send only a hash or link, and only if you click them.
 

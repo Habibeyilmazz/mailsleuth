@@ -43,22 +43,25 @@ describe('Gmail message ids', () => {
 
 describe('from the button to the result', () => {
   const sample = read('../samples/10-voicemail-zip.eml');
-  const fakeGmail = (body: BodyInit, status = 200) => {
+  // finalUrl: where the response ended up after redirects (Response.url), as the browser reports it.
+  const fakeGmail = (body: BodyInit, status = 200, finalUrl = '') => {
     const calls: { url: string; init?: RequestInit }[] = [];
     const fn = (async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
-      return new Response(body, { status });
+      const res = new Response(body, { status });
+      Object.defineProperty(res, 'url', { value: finalUrl });
+      return res;
     }) as typeof fetch;
     return { fn, calls };
   };
 
-  it('downloads the open message with one same-origin request and rates it like the CLI', async () => {
+  it('downloads the open message through Gmail\'s redirect and rates it like the CLI', async () => {
     const message = document.querySelector(MESSAGE_SELECTOR)!;
-    const gmail = fakeGmail(sample);
+    const gmail = fakeGmail(sample, 200, 'https://mail-attachment.googleusercontent.com/attachment/u/0/?x=1');
     const bytes = await fetchRawMessage(rawMessageUrl(GMAIL, messageQuery(message)!), gmail.fn);
     expect(gmail.calls).toHaveLength(1);
-    expect(gmail.calls[0].url).toBe('https://mail.google.com/mail/u/0/?view=att&permmsgid=msg-f:1790000000000000042&attid=0&disp=comp&safe=1&zw');
-    expect(gmail.calls[0].init).toMatchObject({ mode: 'same-origin', credentials: 'same-origin' });
+    expect(gmail.calls[0].url).toMatch(/^https:\/\/mail\.google\.com\/mail\/u\/0\/\?view=att&permmsgid=msg-f:1790000000000000042&attid=0&disp=comp&safe=1&zw&ms=\d+$/);
+    expect(gmail.calls[0].init).toMatchObject({ mode: 'cors', credentials: 'same-origin' });
 
     const viaGmail = await analyze(bytesToBinary(new Uint8Array(bytes)));
     const direct = await analyze(bytesToBinary(new Uint8Array(sample)));
@@ -73,5 +76,9 @@ describe('from the button to the result', () => {
     await expect(fetchRawMessage('u', fakeGmail('<html><body>x').fn)).rejects.toThrow(/web page/);
     await expect(fetchRawMessage('u', fakeGmail('nope', 404).fn)).rejects.toThrow(/answered 404/);
     await expect(fetchRawMessage('u', fakeGmail(' \r\n').fn)).rejects.toThrow(/empty/);
+  });
+
+  it('refuses a body that came from any host but Gmail\'s two', async () => {
+    await expect(fetchRawMessage('u', fakeGmail(sample, 200, 'https://evil.example/x').fn)).rejects.toThrow(/somewhere unexpected/);
   });
 });
