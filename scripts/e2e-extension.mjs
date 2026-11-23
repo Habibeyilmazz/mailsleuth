@@ -81,6 +81,8 @@ try {
   await buttons.first().waitFor();
   check('buttons (two valid ids, one malformed)', await buttons.count(), 2);
   check('downloads before any click', downloads.length, 0);
+  check('buttons are small chips, not stretched to the message height', await buttons.evaluateAll((b) => b.map((x) => x.getBoundingClientRect().height <= 28)), [true, true]);
+  check('first chip sits in the sender line', await buttons.first().evaluate((b) => b.closest('h3')?.textContent?.startsWith('Voice Mail')), true);
 
   // 1. The current-style id: the voicemail with a ZIP.
   await buttons.first().click();
@@ -104,7 +106,7 @@ try {
 
   await page.keyboard.press('Escape');
   await page.locator('iframe[title="mailsleuth result"]').waitFor({ state: 'detached' });
-  check('focus back on the button after Escape', await page.evaluate(() => document.activeElement?.textContent), 'Check with mailsleuth');
+  check('focus back on the button after Escape', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Check with mailsleuth');
 
   // 2. The legacy hex id: the PayPal look-alike.
   await buttons.nth(1).click();

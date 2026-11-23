@@ -1,7 +1,8 @@
 <!doctype html>
 <!--
   Synthetic test fixture, NOT Gmail: a minimal page that copies only the parts of Gmail's message markup
-  the extension relies on (data-message-id / data-legacy-message-id on each open message). Used by
+  the extension relies on (data-message-id / data-legacy-message-id on each open message, and the sender line
+  h3 > span[email]). The second message is laid out as a row, as Gmail does, to test the fallback placement. Used by
   test/extension.test.ts and, served as https://mail.google.com/mail/u/0/ through Playwright routing,
   by scripts/e2e-extension.mjs. The messages are the repository's synthetic samples; no real mail.
 -->
@@ -23,7 +24,8 @@
       .adn { border-top: 1px solid #e0e0e0; padding: 14px 0 18px; }
       .head { display: flex; gap: 12px; align-items: center; }
       .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; }
-      .who { font-weight: 600; }
+      .who { font-weight: 600; font-size: 14px; margin: 0; }
+      .row { display: flex; gap: 12px; }
       .who span { font-weight: 400; color: #5f6368; font-size: 12px; }
       .date { margin-left: auto; color: #5f6368; font-size: 12px; }
       .body { margin: 12px 0 0 52px; max-width: 60ch; }
@@ -41,7 +43,7 @@
         <div class="adn ads" data-message-id="#msg-f:1790000000000000042" data-legacy-message-id="18d6f5c2a4b3e042">
           <div class="head">
             <div class="avatar" style="background:#7b5ea7">V</div>
-            <div class="who">Voice Mail <span>&lt;notify@hosted-pbx-alerts.example&gt;</span></div>
+            <h3 class="who iw"><span class="gD" email="notify@hosted-pbx-alerts.example">Voice Mail</span> <span>&lt;notify@hosted-pbx-alerts.example&gt;</span></h3>
             <div class="date">Sat, 21 Nov, 07:41</div>
           </div>
           <div class="body">
@@ -53,7 +55,7 @@
         </div>
 
         <!-- Older markup: only the legacy hex id. -->
-        <div class="adn ads" data-legacy-message-id="18d6f5c2a4b3e001">
+        <div class="adn ads row" data-legacy-message-id="18d6f5c2a4b3e001">
           <div class="head">
             <div class="avatar" style="background:#1a73e8">P</div>
             <div class="who">PayPal <span>&lt;service@paypa1-secure.example&gt;</span></div>

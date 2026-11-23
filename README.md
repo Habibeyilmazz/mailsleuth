@@ -10,7 +10,7 @@ Built for regular people who want a second opinion on one email, and for SOC beg
 
 ## Use it inside Gmail
 
-A browser extension adds a **Check with mailsleuth** button above each open email in Gmail on the web. One click shows the full result in a panel next to the email: score, risk level, every reason with its evidence, links, and attachment hashes with VirusTotal and MalwareBazaar lookup buttons. No exporting, no pasting.
+A browser extension adds a small **🛡 Check** button to the sender line of each open email in Gmail on the web. One click shows the full result in a panel next to the email: score, risk level, every reason with its evidence, links, and attachment hashes with VirusTotal and MalwareBazaar lookup buttons. No exporting, no pasting.
 
 ![The mailsleuth panel open next to an email in a Gmail-like test page: a synthetic voicemail with a ZIP attachment scores 62 out of 100, high risk, with what to do next](docs/screenshots/extension-gmail.png)
 
@@ -26,7 +26,7 @@ npm run build:extension   # writes dist-extension/ and mailsleuth-extension-chro
 1. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose the `dist-extension` folder.
-4. Reload Gmail, open an email, click **Check with mailsleuth**. Escape or **Close** hides the panel.
+4. Reload Gmail, open an email, click **Check** next to the sender's name. Escape or **Close** hides the panel.
 
 Without Node: every CI run on `main` uploads the same build as the `mailsleuth-extension` artifact (Actions tab, needs a GitHub login); unzip `mailsleuth-extension-chrome.zip` and load that folder. Firefox 128+: `about:debugging#/runtime/this-firefox` › **Load Temporary Add-on** › pick `mailsleuth-extension-firefox.zip`; this build exists but has not been tested in Firefox.
 

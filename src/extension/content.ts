@@ -57,19 +57,49 @@ window.addEventListener('message', (e) => {
   if (e.origin === EXT_ORIGIN && frame && e.source === frame.contentWindow && e.data?.type === 'close') closePanel();
 });
 
+// Neutral colours taken from the surrounding text, so the chip suits Gmail's light and dark themes.
+const style = document.createElement('style');
+style.textContent = `.mailsleuth-chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;margin:0;
+font:500 12px/1 "Google Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:inherit;background:transparent;
+border:1px solid rgba(128,128,128,.45);border-radius:999px;cursor:pointer;opacity:.85}
+.mailsleuth-chip:hover{opacity:1;background:rgba(128,128,128,.16)}
+.mailsleuth-chip:focus-visible{opacity:1;outline:2px solid #0b8a8f;outline-offset:2px}`;
+document.head.append(style);
+
+function shieldIcon(): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', 'M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6z M9 12l2 2 4-4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return svg;
+}
+
 function addButtons() {
   for (const message of document.querySelectorAll(MESSAGE_SELECTOR)) {
     if (message.querySelector(`[${MARK}]`)) continue;
     const query = messageQuery(message);
     if (!query) continue;
-    const bar = document.createElement('div');
+    const bar = document.createElement('span');
     bar.setAttribute(MARK, '');
-    bar.style.cssText = 'display:flex;padding:4px 0 8px';
+    bar.style.cssText = 'display:inline-flex;vertical-align:middle;margin-left:10px;flex:none';
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = 'Check with mailsleuth';
-    button.style.cssText = 'font:600 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;background:#0b6467;' +
-      'border:0;border-radius:999px;padding:8px 14px;cursor:pointer;outline-offset:2px';
+    button.className = 'mailsleuth-chip';
+    button.setAttribute('aria-label', 'Check with mailsleuth');
+    button.title = 'Check this email for phishing signs (mailsleuth, offline)';
+    button.append(shieldIcon(), 'Check');
+    // The chip sits in Gmail's header, where a click would also collapse the message.
+    for (const type of ['mousedown', 'mouseup', 'click']) button.addEventListener(type, (e) => e.stopPropagation());
     button.addEventListener('click', () => void check(query, button));
     bar.append(button);
     placeBar(message, bar);

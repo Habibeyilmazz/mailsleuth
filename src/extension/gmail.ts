@@ -21,8 +21,15 @@ export function messageQuery(el: Element): string | null {
   return null;
 }
 
-/** Where the "Check with mailsleuth" bar goes: first thing inside the message, above its header. */
-export function placeBar(message: Element, bar: Element) {
+/**
+ * Where the "Check" chip goes: at the end of the sender line (the <h3> holding the sender's span[email], the
+ * hook Gmail.js uses for the sender), next to Gmail's own "Unsubscribe" link. Without one, first thing in the message.
+ */
+export function placeBar(message: Element, bar: HTMLElement) {
+  const sender = message.querySelector('h3 span[email]')?.closest('h3');
+  if (sender) return void sender.append(bar);
+  // Gmail lays a message out as a row; a prepended child would otherwise stretch into a full-height column.
+  bar.style.alignSelf = 'flex-start';
   message.prepend(bar);
 }
 

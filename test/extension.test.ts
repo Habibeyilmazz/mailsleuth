@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { analyze } from '../src/core/analyze';
 import { bytesToBinary } from '../src/core/encoding';
-import { fetchRawMessage, MESSAGE_SELECTOR, messageQuery, rawMessageUrl } from '../src/extension/gmail';
+import { fetchRawMessage, MESSAGE_SELECTOR, messageQuery, placeBar, rawMessageUrl } from '../src/extension/gmail';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url));
 const GMAIL = { origin: 'https://mail.google.com', pathname: '/mail/u/0/' };
@@ -38,6 +38,20 @@ describe('Gmail message ids', () => {
     expect(rawMessageUrl({ ...GMAIL, pathname: '/mail/' }, 'th=ab')).toBe('https://mail.google.com/mail/?view=att&th=ab&attid=0&disp=comp&safe=1&zw');
     // Any other path (a popout, a future layout) falls back to the first account rather than guessing.
     expect(rawMessageUrl({ ...GMAIL, pathname: '/mail/u/0/popout' }, 'th=ab')).toBe('https://mail.google.com/mail/u/0/?view=att&th=ab&attid=0&disp=comp&safe=1&zw');
+  });
+});
+
+describe('where the Check chip goes', () => {
+  it('joins the sender line when there is one, else goes first without stretching', () => {
+    const [withSender, rowLayout] = document.querySelectorAll(MESSAGE_SELECTOR);
+    const a = document.createElement('span');
+    placeBar(withSender, a);
+    expect(a.parentElement?.tagName).toBe('H3');
+    expect(a.parentElement?.querySelector('[email]')?.textContent).toBe('Voice Mail');
+    const b = document.createElement('span');
+    placeBar(rowLayout, b);
+    expect(rowLayout.firstElementChild).toBe(b);
+    expect(b.style.alignSelf).toBe('flex-start');
   });
 });
 
