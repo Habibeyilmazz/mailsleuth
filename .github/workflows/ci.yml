@@ -74,6 +74,7 @@ jobs:
         run: grep -q "connect-src 'none'" dist/index.html
       - name: Extension in Chromium against a fake Gmail page (no real Gmail, no account)
         run: npm run e2e:extension
+        timeout-minutes: 5
       - name: Extension asks for no API permissions and keeps its strict CSP
         run: |
           node -e 'const m=require("./dist-extension/manifest.json"); if (m.permissions || m.host_permissions || m.optional_permissions || !m.content_security_policy.extension_pages.includes("connect-src '"'"'none'"'"'")) process.exit(1)'
